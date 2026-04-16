@@ -11,51 +11,27 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #root { min-height: 100vh; }
   </style>
- 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
- 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAd4iIKmPVPTRPyCw1ZNlL-3QAuOlv6cSM",
-      authDomain: "crack-del-mes.firebaseapp.com",
-      projectId: "crack-del-mes",
-      storageBucket: "crack-del-mes.firebasestorage.app",
-      messagingSenderId: "881267530852",
-      appId: "1:881267530852:web:7072a98a6856847a935371"
-    };
- 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
- 
-    // Si no detecta un usuario registrado, redirige automáticamente al login
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        window.location.href = "login.html";
-      }
-    });
-  </script>
 </head>
 <body>
   <div id="root"></div>
- 
+
   <!-- React + Babel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
- 
+
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
- 
+
   <script type="text/babel">
     const { useState, useEffect } = React;
- 
+
     // ── CREDENCIALES SUPABASE ──────────────────────────────────────────────
     const SUPABASE_URL = "https://xajyhdcozfjynttqfwtw.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhanloZGNvemZqeW50dHFmd3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3ODczNTUsImV4cCI6MjA4ODM2MzM1NX0.OFNIv1IdoSUmJfP0KpRh99usChG3exWKvJWaKKhSaY4";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // ──────────────────────────────────────────────────────────────────────
- 
+
     const CATALOG = [
       { id: 1, label: "Curso publicado en fecha", pts: 10, icon: "🎓" },
       { id: 2, label: "Colaboración con otro departamento/proyecto", pts: 4, icon: "🤝" },
@@ -64,25 +40,25 @@
       { id: 5, label: "Bonus por entrega antes de tiempo", pts: 3, icon: "⚡" },
       { id: 6, label: "Resolución de incidencia", pts: 1, icon: "🔧" },
     ];
- 
+
     const PALETTE = [
       { main: "#FF6B6B", glow: "rgba(255,107,107,0.4)" },
       { main: "#4ECDC4", glow: "rgba(78,205,196,0.4)" },
       { main: "#FFE66D", glow: "rgba(255,230,109,0.4)" },
       { main: "#a78bfa", glow: "rgba(167,139,250,0.4)" },
     ];
- 
+
     const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const isLastDay = now.getDate() === lastDayOfMonth;
- 
+
     function getUserColor(name, allNames) {
       const idx = [...allNames].sort().indexOf(name);
       return PALETTE[idx % PALETTE.length] || PALETTE[0];
     }
- 
+
     const S = {
       app: { minHeight: "100vh", background: "linear-gradient(135deg, #0a0a1a 0%, #0f0f2e 50%, #0a0a1a 100%)", fontFamily: "'DM Sans', sans-serif", color: "#e8e8ff" },
       nav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 100 },
@@ -111,7 +87,7 @@
       success: { color: "#4ECDC4", fontSize: "13px", padding: "8px", background: "rgba(78,205,196,0.08)", borderRadius: "8px" },
       spinner: { display: "inline-block", width: "18px", height: "18px", border: "2px solid rgba(255,255,255,0.15)", borderTop: "2px solid #4ECDC4", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
     };
- 
+
     function App() {
       const [session, setSession] = useState(null);
       const [profile, setProfile] = useState(null);
@@ -121,11 +97,11 @@
       const [authForm, setAuthForm] = useState({ email: "", password: "", name: "" });
       const [authError, setAuthError] = useState("");
       const [authLoading, setAuthLoading] = useState(false);
- 
+
       const [records, setRecords] = useState([]);
       const [profiles, setProfiles] = useState([]);
       const [history, setHistory] = useState([]);
- 
+
       const [form, setForm] = useState({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "" });
       const [formMsg, setFormMsg] = useState("");
       const [closingMonth, setClosingMonth] = useState(false);
@@ -138,7 +114,7 @@
       const [spinDeg, setSpinDeg] = useState(0);
       const [wonPrize, setWonPrize] = useState(null);
       const [currentDeg, setCurrentDeg] = useState(0);
- 
+
       useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
           setSession(session);
@@ -152,11 +128,11 @@
         });
         return () => subscription.unsubscribe();
       }, []);
- 
+
       useEffect(() => {
         if (profile) { loadRecords(); loadProfiles(); loadHistory(); loadPrizes(); }
       }, [profile]);
- 
+
       async function loadProfile(uid) {
         const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
         setProfile(data);
@@ -203,7 +179,7 @@
           setWonPrize(prizes[randomSlice]);
         }, 4500);
       }
- 
+
       async function handleLogin() {
         setAuthLoading(true); setAuthError("");
         const { error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password });
@@ -269,7 +245,7 @@
         });
         await loadHistory(); setClosingMonth(false); setView("dashboard");
       }
- 
+
       const teamProfiles = profiles.filter(p => p.role === "user");
       const allNames = teamProfiles.map(p => p.name);
       const currentPoints = teamProfiles.map(p => ({
@@ -279,7 +255,7 @@
       const maxPts = Math.max(...currentPoints.map(u => u.pts), 1);
       const winner = currentPoints[0];
       const visibleRecords = profile?.role === "admin" ? records : records.filter(r => r.user_id === session?.user?.id);
- 
+
       // LOADING
       if (loading) return (
         <div style={S.loginWrap}>
@@ -290,7 +266,7 @@
           </div>
         </div>
       );
- 
+
       // AUTH
       if (!session || !profile) return (
         <div style={S.loginWrap}>
@@ -330,7 +306,7 @@
           </div>
         </div>
       );
- 
+
       // MAIN APP
       return (
         <div style={S.app}>
@@ -359,9 +335,9 @@
               <button onClick={handleLogout} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: "18px" }}>×</button>
             </div>
           </nav>
- 
+
           <main style={S.main}>
- 
+
             {/* DASHBOARD */}
             {view === "dashboard" && (
               <>
@@ -369,7 +345,7 @@
                   <div style={{ fontSize: "28px", fontWeight: "900" }}>{MONTH_NAMES[now.getMonth()]} {now.getFullYear()}</div>
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>{records.filter(r => r.month === monthKey && r.validated).length} logros validados este mes</div>
                 </div>
- 
+
                 {isLastDay && winner && (
                   <div style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,165,0,0.06))", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "16px", padding: "20px 24px", display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
                     <span style={{ fontSize: "36px" }}>🥇</span>
@@ -382,7 +358,7 @@
                     )}
                   </div>
                 )}
- 
+
                 <div style={S.card}>
                   <div style={S.sectionTitle}>🏅 Leaderboard — {MONTH_NAMES[now.getMonth()]}</div>
                   {currentPoints.length === 0 ? (
@@ -410,7 +386,7 @@
                     </div>
                   )}
                 </div>
- 
+
                 <div style={S.card}>
                   <div style={S.sectionTitle}>📝 Últimos logros del mes</div>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -437,7 +413,7 @@
                 </div>
               </>
             )}
- 
+
             {/* REGISTRAR */}
             {view === "registrar" && profile.role !== "admin" && (
               <div style={S.card}>
@@ -469,7 +445,7 @@
                 </div>
               </div>
             )}
- 
+
             {/* HISTORIAL */}
             {view === "historial" && (
               <>
@@ -521,7 +497,7 @@
                 )}
               </>
             )}
- 
+
             {/* ADMIN */}
             {view === "admin" && profile.role === "admin" && (
               <>
@@ -551,7 +527,7 @@
                     </tbody>
                   </table>
                 </div>
- 
+
                 <div style={S.card}>
                   <div style={S.sectionTitle}>⚙️ Validar y gestionar registros</div>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -586,7 +562,7 @@
                     </div>
                   )}
                 </div>
- 
+
                 <div style={S.card}>
                   <div style={S.sectionTitle}>🎡 Premios de la Ruleta</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -610,7 +586,7 @@
               </>
             )}
           </main>
- 
+
           {/* MODAL EDITAR */}
           {editRecord && (
             <div style={S.overlay}>
@@ -639,7 +615,7 @@
               </div>
             </div>
           )}
- 
+
           {/* MODAL RULETA */}
           {showRoulette && (
             <div style={S.overlay} onClick={() => { if (!spinning) { setShowRoulette(false); setWonPrize(null); } }}>
@@ -648,7 +624,7 @@
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px", marginBottom: "24px" }}>
                   {winner ? `¡Felicidades ${winner.name}! Gira la ruleta 🎉` : ""}
                 </div>
- 
+
                 {prizes.length === 0 ? (
                   <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
                     Amanda aún no ha configurado los premios.<br/>
@@ -706,7 +682,7 @@
                       {/* Centro */}
                       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "40px", height: "40px", borderRadius: "50%", background: "#0f0f2e", border: "3px solid rgba(255,255,255,0.3)", zIndex: 5 }} />
                     </div>
- 
+
                     {wonPrize && (
                       <div style={{ padding: "20px", borderRadius: "16px", background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,107,0.1))", border: "1px solid rgba(255,215,0,0.4)", marginBottom: "20px" }}>
                         <div style={{ fontSize: "36px", marginBottom: "6px" }}>🎊</div>
@@ -714,7 +690,7 @@
                         <div style={{ fontSize: "18px", fontWeight: "700", marginTop: "4px", color: "#fff" }}>{wonPrize.label}</div>
                       </div>
                     )}
- 
+
                     <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                       {!spinning && (
                         <button style={{ ...S.btn("#FF6B6B"), fontSize: "16px", padding: "14px 32px" }} onClick={handleSpin} disabled={spinning}>
@@ -729,7 +705,7 @@
               </div>
             </div>
           )}
- 
+
           {/* MODAL CIERRE MES */}
           {closingMonth && (
             <div style={S.overlay}>
@@ -751,7 +727,7 @@
         </div>
       );
     }
- 
+
     const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(<App />);
   </script>
