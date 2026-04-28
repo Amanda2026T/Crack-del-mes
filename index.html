@@ -32,7 +32,7 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // ──────────────────────────────────────────────────────────────────────
 
-    const CATALOG = [
+    const DEFAULT_CATALOG = [
       { id: 1, label: "Curso publicado en fecha", pts: 10, icon: "🎓" },
       { id: 2, label: "Colaboración con otro departamento/proyecto", pts: 4, icon: "🤝" },
       { id: 3, label: "Propuesta de mejora técnica/edición/creación", pts: 5, icon: "💡" },
@@ -101,6 +101,8 @@
       const [records, setRecords] = useState([]);
       const [profiles, setProfiles] = useState([]);
       const [history, setHistory] = useState([]);
+      const [catalog, setCatalog] = useState([]);
+      const [newCatalogItem, setNewCatalogItem] = useState({ label: "", pts: "", icon: "⭐" });
 
       const [form, setForm] = useState({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "" });
       const [formMsg, setFormMsg] = useState("");
@@ -114,6 +116,8 @@
       const [spinDeg, setSpinDeg] = useState(0);
       const [wonPrize, setWonPrize] = useState(null);
       const [currentDeg, setCurrentDeg] = useState(0);
+      const [notifications, setNotifications] = useState([]);
+      const [showNotifs, setShowNotifs] = useState(false);
 
       useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,9 +134,18 @@
       }, []);
 
       useEffect(() => {
-        if (profile) { loadRecords(); loadProfiles(); loadHistory(); loadPrizes(); }
+        if (profile) { loadRecords(); loadProfiles(); loadHistory(); loadPrizes(); loadCatalog(); loadNotifications(); }
       }, [profile]);
 
+      async function loadNotifications() {
+        if (!session) return;
+        const { data } = await supabase.from("notifications").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(20);
+        setNotifications(data || []);
+      }
+      async function markAllRead() {
+        await supabase.from("notifications").update({ read: true }).eq("user_id", session.user.id).eq("read", false);
+        await loadNotifications();
+      }
       async function loadProfile(uid) {
         const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
         setProfile(data);
@@ -153,6 +166,26 @@
       async function loadPrizes() {
         const { data } = await supabase.from("prizes").select("*").order("created_at");
         setPrizes(data || []);
+      }
+      async function loadCatalog() {
+        const { data } = await supabase.from("catalog_items").select("*").order("created_at");
+        if (data && data.length > 0) {
+          setCatalog(data);
+        } else {
+          // Si no hay items en BD, carga los por defecto y los guarda
+          const { data: inserted } = await supabase.from("catalog_items").insert(DEFAULT_CATALOG.map(c => ({ label: c.label, pts: c.pts, icon: c.icon }))).select();
+          setCatalog(inserted || DEFAULT_CATALOG);
+        }
+      }
+      async function handleAddCatalogItem() {
+        if (!newCatalogItem.label.trim() || !newCatalogItem.pts) return;
+        await supabase.from("catalog_items").insert({ label: newCatalogItem.label.trim(), pts: parseInt(newCatalogItem.pts), icon: newCatalogItem.icon || "⭐" });
+        setNewCatalogItem({ label: "", pts: "", icon: "⭐" });
+        await loadCatalog();
+      }
+      async function handleDeleteCatalogItem(id) {
+        await supabase.from("catalog_items").delete().eq("id", id);
+        await loadCatalog();
       }
       async function handleAddPrize() {
         if (!newPrize.trim()) return;
@@ -203,7 +236,7 @@
       }
       async function handleSubmit() {
         if (!form.catalogId || !form.date || !form.desc.trim()) { setFormMsg("⚠️ Completa todos los campos."); return; }
-        const cat = CATALOG.find(c => c.id === parseInt(form.catalogId));
+        const cat = catalog.find(c => c.id === parseInt(form.catalogId));
         const { error } = await supabase.from("records").insert({
           user_id: session.user.id, user_name: profile.name,
           catalog_id: cat.id, pts: cat.pts,
@@ -217,6 +250,15 @@
       }
       async function handleValidate(id) {
         await supabase.from("records").update({ validated: true }).eq("id", id);
+        // Insertar notificación para el usuario
+        const rec = records.find(r => r.id === id);
+        if (rec) {
+          await supabase.from("notifications").insert({
+            user_id: rec.user_id,
+            message: `✅ Amanda ha validado tu logro "${rec.description}" — +${rec.pts} pts`,
+            read: false,
+          });
+        }
         await loadRecords();
       }
       async function handleDelete(id) {
@@ -224,8 +266,8 @@
         await loadRecords();
       }
       async function handleSaveEdit() {
-        const cat = CATALOG.find(c => c.id === editRecord.catalog_id);
-        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
+        const cat = catalog.find(c => c.id === editRecord.catalog_id);
+        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat ? cat.pts : editRecord.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
         await loadRecords(); setEditRecord(null);
       }
       async function handleUpdateRole(uid, role) {
@@ -327,6 +369,30 @@
               )}
             </div>
             <div style={S.userBadge}>
+              {profile.role !== "admin" && (
+                <div style={{ position: "relative" }}>
+                  <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) markAllRead(); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px", position: "relative" }}>
+                    🔔
+                    {notifications.filter(n => !n.read).length > 0 && (
+                      <span style={{ position: "absolute", top: "-4px", right: "-4px", background: "#FF6B6B", color: "#fff", borderRadius: "50%", width: "16px", height: "16px", fontSize: "10px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {notifications.filter(n => !n.read).length}
+                      </span>
+                    )}
+                  </button>
+                  {showNotifs && (
+                    <div style={{ position: "absolute", right: 0, top: "36px", width: "300px", background: "#0f0f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "14px", padding: "12px", zIndex: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "700", color: "rgba(255,255,255,0.4)", marginBottom: "10px", letterSpacing: "1px" }}>NOTIFICACIONES</div>
+                      {notifications.length === 0 ? (
+                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>Sin notificaciones</div>
+                      ) : notifications.map(n => (
+                        <div key={n.id} style={{ padding: "10px 12px", borderRadius: "10px", marginBottom: "6px", background: n.read ? "rgba(255,255,255,0.02)" : "rgba(78,205,196,0.08)", border: `1px solid ${n.read ? "rgba(255,255,255,0.05)" : "rgba(78,205,196,0.2)"}`, fontSize: "13px", color: n.read ? "rgba(255,255,255,0.4)" : "#e8e8ff" }}>
+                          {n.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `linear-gradient(135deg, ${getUserColor(profile.name, allNames).main}, #fff3)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px", color: "#000" }}>
                 {profile.name[0]}
               </div>
@@ -395,7 +461,7 @@
                     </tr></thead>
                     <tbody>
                       {records.filter(r => r.month === monthKey).slice(0, 8).map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
+                        const cat = catalog.find(c => c.id === r.catalog_id);
                         const color = getUserColor(r.user_name, allNames);
                         return (
                           <tr key={r.id}>
@@ -423,7 +489,7 @@
                     <label style={S.label}>¿Qué has conseguido?</label>
                     <select style={S.select} value={form.catalogId} onChange={e => setForm(f => ({ ...f, catalogId: e.target.value }))}>
                       <option value="">Selecciona un item...</option>
-                      {CATALOG.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
+                      {catalog.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
                     </select>
                   </div>
                   <div>
@@ -436,7 +502,7 @@
                   </div>
                   {form.catalogId && (
                     <div style={{ padding: "14px 18px", borderRadius: "12px", background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.2)" }}>
-                      <span style={{ color: "#4ECDC4", fontWeight: "800" }}>+{CATALOG.find(c => c.id === parseInt(form.catalogId))?.pts} puntos</span>
+                      <span style={{ color: "#4ECDC4", fontWeight: "800" }}>+{catalog.find(c => c.id === parseInt(form.catalogId))?.pts} puntos</span>
                       <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px" }}> — pendiente de validación por Amanda</span>
                     </div>
                   )}
@@ -458,7 +524,7 @@
                     </tr></thead>
                     <tbody>
                       {visibleRecords.map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
+                        const cat = catalog.find(c => c.id === r.catalog_id);
                         const color = getUserColor(r.user_name, allNames);
                         return (
                           <tr key={r.id}>
@@ -536,7 +602,7 @@
                     </tr></thead>
                     <tbody>
                       {records.map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
+                        const cat = catalog.find(c => c.id === r.catalog_id);
                         const color = getUserColor(r.user_name, allNames);
                         return (
                           <tr key={r.id}>
@@ -561,6 +627,33 @@
                       ⏰ El cierre de mes estará disponible el {lastDayOfMonth} de {MONTH_NAMES[now.getMonth()]}.
                     </div>
                   )}
+                </div>
+
+                <div style={S.card}>
+                  <div style={S.sectionTitle}>📋 Catálogo de Logros</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+                    {catalog.map((item) => (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+                          <span style={{ fontSize: "20px" }}>{item.icon}</span>
+                          <span style={{ fontSize: "14px", fontWeight: "600" }}>{item.label}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontSize: "16px", fontWeight: "800", color: "#4ECDC4" }}>{item.pts} pts</span>
+                          <button style={S.dangerBtn} onClick={() => handleDeleteCatalogItem(item.id)}>🗑</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}>
+                    <div style={{ fontSize: "12px", fontWeight: "700", color: "rgba(255,255,255,0.4)", marginBottom: "12px", letterSpacing: "1px" }}>AÑADIR NUEVO ITEM</div>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <input style={{ ...S.input, width: "60px" }} placeholder="🎯" value={newCatalogItem.icon} onChange={e => setNewCatalogItem(f => ({ ...f, icon: e.target.value }))} />
+                      <input style={{ ...S.input, flex: 2, minWidth: "160px" }} placeholder="Nombre del logro..." value={newCatalogItem.label} onChange={e => setNewCatalogItem(f => ({ ...f, label: e.target.value }))} />
+                      <input style={{ ...S.input, width: "80px" }} type="number" placeholder="Pts" min="1" value={newCatalogItem.pts} onChange={e => setNewCatalogItem(f => ({ ...f, pts: e.target.value }))} />
+                      <button style={S.btn("#4ECDC4")} onClick={handleAddCatalogItem}>Añadir</button>
+                    </div>
+                  </div>
                 </div>
 
                 <div style={S.card}>
@@ -596,7 +689,7 @@
                   <div>
                     <label style={S.label}>Logro</label>
                     <select style={S.select} value={editRecord.catalog_id} onChange={e => setEditRecord(r => ({ ...r, catalog_id: parseInt(e.target.value) }))}>
-                      {CATALOG.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
+                      {catalog.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
                     </select>
                   </div>
                   <div>
