@@ -11,30 +11,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #root { min-height: 100vh; }
   </style>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAd4iIKmPVPTRPyCw1ZNlL-3QAuOlv6cSM",
-      authDomain: "crack-del-mes.firebaseapp.com",
-      projectId: "crack-del-mes",
-      storageBucket: "crack-del-mes.firebasestorage.app",
-      messagingSenderId: "881267530852",
-      appId: "1:881267530852:web:7072a98a6856847a935371"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    // Si no detecta un usuario registrado, redirige automáticamente al login
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        window.location.href = "login.html";
-      }
-    });
-  </script>
 </head>
 <body>
   <div id="root"></div>
