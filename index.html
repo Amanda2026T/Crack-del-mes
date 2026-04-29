@@ -11,6 +11,30 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #root { min-height: 100vh; }
   </style>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAd4iIKmPVPTRPyCw1ZNlL-3QAuOlv6cSM",
+      authDomain: "crack-del-mes.firebaseapp.com",
+      projectId: "crack-del-mes",
+      storageBucket: "crack-del-mes.firebasestorage.app",
+      messagingSenderId: "881267530852",
+      appId: "1:881267530852:web:7072a98a6856847a935371"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Si no detecta un usuario registrado, redirige automáticamente al login
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+      }
+    });
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -32,7 +56,7 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // ──────────────────────────────────────────────────────────────────────
 
-    const DEFAULT_CATALOG = [
+    const CATALOG = [
       { id: 1, label: "Curso publicado en fecha", pts: 10, icon: "🎓" },
       { id: 2, label: "Colaboración con otro departamento/proyecto", pts: 4, icon: "🤝" },
       { id: 3, label: "Propuesta de mejora técnica/edición/creación", pts: 5, icon: "💡" },
@@ -101,23 +125,11 @@
       const [records, setRecords] = useState([]);
       const [profiles, setProfiles] = useState([]);
       const [history, setHistory] = useState([]);
-      const [catalog, setCatalog] = useState([]);
-      const [newCatalogItem, setNewCatalogItem] = useState({ label: "", pts: "", icon: "⭐" });
 
       const [form, setForm] = useState({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "" });
       const [formMsg, setFormMsg] = useState("");
       const [closingMonth, setClosingMonth] = useState(false);
       const [editRecord, setEditRecord] = useState(null);
-      const [showRoulette, setShowRoulette] = useState(false);
-      const [prizes, setPrizes] = useState([]);
-      const [editingPrizes, setEditingPrizes] = useState(false);
-      const [newPrize, setNewPrize] = useState("");
-      const [spinning, setSpinning] = useState(false);
-      const [spinDeg, setSpinDeg] = useState(0);
-      const [wonPrize, setWonPrize] = useState(null);
-      const [currentDeg, setCurrentDeg] = useState(0);
-      const [notifications, setNotifications] = useState([]);
-      const [showNotifs, setShowNotifs] = useState(false);
 
       useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -134,18 +146,9 @@
       }, []);
 
       useEffect(() => {
-        if (profile) { loadRecords(); loadProfiles(); loadHistory(); loadPrizes(); loadCatalog(); loadNotifications(); }
+        if (profile) { loadRecords(); loadProfiles(); loadHistory(); }
       }, [profile]);
 
-      async function loadNotifications() {
-        if (!session) return;
-        const { data } = await supabase.from("notifications").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(20);
-        setNotifications(data || []);
-      }
-      async function markAllRead() {
-        await supabase.from("notifications").update({ read: true }).eq("user_id", session.user.id).eq("read", false);
-        await loadNotifications();
-      }
       async function loadProfile(uid) {
         const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
         setProfile(data);
@@ -162,55 +165,6 @@
       async function loadHistory() {
         const { data } = await supabase.from("month_history").select("*").order("closed_at", { ascending: false });
         setHistory(data || []);
-      }
-      async function loadPrizes() {
-        const { data } = await supabase.from("prizes").select("*").order("created_at");
-        setPrizes(data || []);
-      }
-      async function loadCatalog() {
-        const { data } = await supabase.from("catalog_items").select("*").order("created_at");
-        if (data && data.length > 0) {
-          setCatalog(data);
-        } else {
-          // Si no hay items en BD, carga los por defecto y los guarda
-          const { data: inserted } = await supabase.from("catalog_items").insert(DEFAULT_CATALOG.map(c => ({ label: c.label, pts: c.pts, icon: c.icon }))).select();
-          setCatalog(inserted || DEFAULT_CATALOG);
-        }
-      }
-      async function handleAddCatalogItem() {
-        if (!newCatalogItem.label.trim() || !newCatalogItem.pts) return;
-        await supabase.from("catalog_items").insert({ label: newCatalogItem.label.trim(), pts: parseInt(newCatalogItem.pts), icon: newCatalogItem.icon || "⭐" });
-        setNewCatalogItem({ label: "", pts: "", icon: "⭐" });
-        await loadCatalog();
-      }
-      async function handleDeleteCatalogItem(id) {
-        await supabase.from("catalog_items").delete().eq("id", id);
-        await loadCatalog();
-      }
-      async function handleAddPrize() {
-        if (!newPrize.trim()) return;
-        await supabase.from("prizes").insert({ label: newPrize.trim() });
-        setNewPrize("");
-        await loadPrizes();
-      }
-      async function handleDeletePrize(id) {
-        await supabase.from("prizes").delete().eq("id", id);
-        await loadPrizes();
-      }
-      function handleSpin() {
-        if (spinning || prizes.length === 0) return;
-        setWonPrize(null);
-        setSpinning(true);
-        const extraSpins = 5 + Math.floor(Math.random() * 5);
-        const randomSlice = Math.floor(Math.random() * prizes.length);
-        const sliceDeg = 360 / prizes.length;
-        const targetDeg = currentDeg + extraSpins * 360 + (360 - randomSlice * sliceDeg - sliceDeg / 2);
-        setSpinDeg(targetDeg);
-        setCurrentDeg(targetDeg % 360);
-        setTimeout(() => {
-          setSpinning(false);
-          setWonPrize(prizes[randomSlice]);
-        }, 4500);
       }
 
       async function handleLogin() {
@@ -236,7 +190,7 @@
       }
       async function handleSubmit() {
         if (!form.catalogId || !form.date || !form.desc.trim()) { setFormMsg("⚠️ Completa todos los campos."); return; }
-        const cat = catalog.find(c => c.id === parseInt(form.catalogId));
+        const cat = catalog.find(c => c.id === form.catalogId); if (!cat) { setFormMsg("⚠️ Selecciona un item válido."); return; }
         const { error } = await supabase.from("records").insert({
           user_id: session.user.id, user_name: profile.name,
           catalog_id: cat.id, pts: cat.pts,
@@ -250,15 +204,6 @@
       }
       async function handleValidate(id) {
         await supabase.from("records").update({ validated: true }).eq("id", id);
-        // Insertar notificación para el usuario
-        const rec = records.find(r => r.id === id);
-        if (rec) {
-          await supabase.from("notifications").insert({
-            user_id: rec.user_id,
-            message: `✅ Amanda ha validado tu logro "${rec.description}" — +${rec.pts} pts`,
-            read: false,
-          });
-        }
         await loadRecords();
       }
       async function handleDelete(id) {
@@ -267,7 +212,7 @@
       }
       async function handleSaveEdit() {
         const cat = catalog.find(c => c.id === editRecord.catalog_id);
-        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat ? cat.pts : editRecord.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
+        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
         await loadRecords(); setEditRecord(null);
       }
       async function handleUpdateRole(uid, role) {
@@ -362,37 +307,8 @@
                 </button>
               ))}
               {profile.role === "admin" && <button style={S.navBtn(view === "admin")} onClick={() => setView("admin")}>⚙️ Admin</button>}
-              {(profile.role === "admin" || (winner && winner.id === profile.id)) && (
-                <button style={{ ...S.navBtn(false), background: "linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,230,109,0.2))", color: "#FFE66D", border: "1px solid rgba(255,230,109,0.3)" }} onClick={() => setShowRoulette(true)}>
-                  🎡 Ruleta
-                </button>
-              )}
             </div>
             <div style={S.userBadge}>
-              {profile.role !== "admin" && (
-                <div style={{ position: "relative" }}>
-                  <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) markAllRead(); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px", position: "relative" }}>
-                    🔔
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span style={{ position: "absolute", top: "-4px", right: "-4px", background: "#FF6B6B", color: "#fff", borderRadius: "50%", width: "16px", height: "16px", fontSize: "10px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {notifications.filter(n => !n.read).length}
-                      </span>
-                    )}
-                  </button>
-                  {showNotifs && (
-                    <div style={{ position: "absolute", right: 0, top: "36px", width: "300px", background: "#0f0f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "14px", padding: "12px", zIndex: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                      <div style={{ fontSize: "12px", fontWeight: "700", color: "rgba(255,255,255,0.4)", marginBottom: "10px", letterSpacing: "1px" }}>NOTIFICACIONES</div>
-                      {notifications.length === 0 ? (
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>Sin notificaciones</div>
-                      ) : notifications.map(n => (
-                        <div key={n.id} style={{ padding: "10px 12px", borderRadius: "10px", marginBottom: "6px", background: n.read ? "rgba(255,255,255,0.02)" : "rgba(78,205,196,0.08)", border: `1px solid ${n.read ? "rgba(255,255,255,0.05)" : "rgba(78,205,196,0.2)"}`, fontSize: "13px", color: n.read ? "rgba(255,255,255,0.4)" : "#e8e8ff" }}>
-                          {n.message}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
               <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `linear-gradient(135deg, ${getUserColor(profile.name, allNames).main}, #fff3)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px", color: "#000" }}>
                 {profile.name[0]}
               </div>
@@ -502,7 +418,7 @@
                   </div>
                   {form.catalogId && (
                     <div style={{ padding: "14px 18px", borderRadius: "12px", background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.2)" }}>
-                      <span style={{ color: "#4ECDC4", fontWeight: "800" }}>+{catalog.find(c => c.id === parseInt(form.catalogId))?.pts} puntos</span>
+                      <span style={{ color: "#4ECDC4", fontWeight: "800" }}>+{catalog.find(c => c.id === form.catalogId)?.pts} puntos</span>
                       <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px" }}> — pendiente de validación por Amanda</span>
                     </div>
                   )}
@@ -628,54 +544,6 @@
                     </div>
                   )}
                 </div>
-
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>📋 Catálogo de Logros</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
-                    {catalog.map((item) => (
-                      <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-                          <span style={{ fontSize: "20px" }}>{item.icon}</span>
-                          <span style={{ fontSize: "14px", fontWeight: "600" }}>{item.label}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span style={{ fontSize: "16px", fontWeight: "800", color: "#4ECDC4" }}>{item.pts} pts</span>
-                          <button style={S.dangerBtn} onClick={() => handleDeleteCatalogItem(item.id)}>🗑</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "rgba(255,255,255,0.4)", marginBottom: "12px", letterSpacing: "1px" }}>AÑADIR NUEVO ITEM</div>
-                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <input style={{ ...S.input, width: "60px" }} placeholder="🎯" value={newCatalogItem.icon} onChange={e => setNewCatalogItem(f => ({ ...f, icon: e.target.value }))} />
-                      <input style={{ ...S.input, flex: 2, minWidth: "160px" }} placeholder="Nombre del logro..." value={newCatalogItem.label} onChange={e => setNewCatalogItem(f => ({ ...f, label: e.target.value }))} />
-                      <input style={{ ...S.input, width: "80px" }} type="number" placeholder="Pts" min="1" value={newCatalogItem.pts} onChange={e => setNewCatalogItem(f => ({ ...f, pts: e.target.value }))} />
-                      <button style={S.btn("#4ECDC4")} onClick={handleAddCatalogItem}>Añadir</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>🎡 Premios de la Ruleta</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {prizes.length === 0 && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>No hay premios configurados aún.</div>}
-                    {prizes.map((p, i) => {
-                      const prizeColors = ["#FF6B6B","#4ECDC4","#FFE66D","#a78bfa","#f97316","#34d399","#60a5fa","#f472b6"];
-                      const c = prizeColors[i % prizeColors.length];
-                      return (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: `1px solid ${c}33` }}>
-                          <span style={{ fontSize: "14px", color: c, fontWeight: "600" }}>🎁 {p.label}</span>
-                          <button style={S.dangerBtn} onClick={() => handleDeletePrize(p.id)}>🗑</button>
-                        </div>
-                      );
-                    })}
-                    <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
-                      <input style={{ ...S.input, flex: 1 }} placeholder="Nuevo premio (ej: Día libre 🌟)" value={newPrize} onChange={e => setNewPrize(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAddPrize()} />
-                      <button style={S.btn("#FFE66D")} onClick={handleAddPrize}>Añadir</button>
-                    </div>
-                  </div>
-                </div>
               </>
             )}
           </main>
@@ -705,105 +573,6 @@
                     <button style={S.btn("#4ECDC4")} onClick={handleSaveEdit}>Guardar cambios</button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODAL RULETA */}
-          {showRoulette && (
-            <div style={S.overlay} onClick={() => { if (!spinning) { setShowRoulette(false); setWonPrize(null); } }}>
-              <div style={{ ...S.modal, maxWidth: "520px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontWeight: "900", fontSize: "22px", marginBottom: "4px" }}>🎡 Ruleta de Premios</div>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px", marginBottom: "24px" }}>
-                  {winner ? `¡Felicidades ${winner.name}! Gira la ruleta 🎉` : ""}
-                </div>
-
-                {prizes.length === 0 ? (
-                  <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
-                    Amanda aún no ha configurado los premios.<br/>
-                    <span style={{ fontSize: "12px" }}>Ve a ⚙️ Admin → Premios de la Ruleta</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* CANVAS RULETA */}
-                    <div style={{ position: "relative", width: "380px", height: "380px", margin: "0 auto 24px" }}>
-                      {/* Puntero */}
-                      <div style={{ position: "absolute", top: "-14px", left: "50%", transform: "translateX(-50%)", zIndex: 10, fontSize: "32px", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.8))" }}>▼</div>
-                      {/* Ruleta SVG */}
-                      <svg width="380" height="380" viewBox="0 0 380 380" style={{
-                        transform: `rotate(${spinDeg}deg)`,
-                        transition: spinning ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
-                        filter: "drop-shadow(0 0 24px rgba(255,107,107,0.4))",
-                        borderRadius: "50%",
-                      }}>
-                        {(() => {
-                          const prizeColors = ["#FF6B6B","#4ECDC4","#FFE66D","#a78bfa","#f97316","#34d399","#60a5fa","#f472b6"];
-                          const n = prizes.length;
-                          const cx = 190, cy = 190, r = 185;
-                          const sliceDeg = 360 / n;
-                          return prizes.map((p, i) => {
-                            const startAngle = i * sliceDeg - 90;
-                            const endAngle = startAngle + sliceDeg;
-                            const toRad = deg => deg * Math.PI / 180;
-                            const x1 = cx + r * Math.cos(toRad(startAngle));
-                            const y1 = cy + r * Math.sin(toRad(startAngle));
-                            const x2 = cx + r * Math.cos(toRad(endAngle));
-                            const y2 = cy + r * Math.sin(toRad(endAngle));
-                            const largeArc = sliceDeg > 180 ? 1 : 0;
-                            const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`;
-                            const midAngle = startAngle + sliceDeg / 2;
-                            const textR = r * 0.62;
-                            const tx = cx + textR * Math.cos(toRad(midAngle));
-                            const ty = cy + textR * Math.sin(toRad(midAngle));
-                            const color = prizeColors[i % prizeColors.length];
-                            const label = p.label.length > 16 ? p.label.slice(0, 15) + "…" : p.label;
-                            const fontSize = n <= 4 ? 13 : n <= 6 ? 11 : 9;
-                            return (
-                              <g key={p.id}>
-                                <path d={path} fill={color} stroke="#0f0f2e" strokeWidth="2" />
-                                <text
-                                  x={tx} y={ty}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                  transform={`rotate(${midAngle + 90}, ${tx}, ${ty})`}
-                                  fill="#000"
-                                  fontWeight="800"
-                                  fontSize={fontSize}
-                                  fontFamily="DM Sans, Arial, sans-serif"
-                                  style={{ pointerEvents: "none" }}
-                                >
-                                  {label}
-                                </text>
-                              </g>
-                            );
-                          });
-                        })()}
-                        {/* Borde exterior */}
-                        <circle cx="190" cy="190" r="185" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
-                        {/* Centro */}
-                        <circle cx="190" cy="190" r="22" fill="#0f0f2e" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
-                      </svg>
-                    </div>
-
-                    {wonPrize && (
-                      <div style={{ padding: "20px", borderRadius: "16px", background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,107,0.1))", border: "1px solid rgba(255,215,0,0.4)", marginBottom: "20px" }}>
-                        <div style={{ fontSize: "36px", marginBottom: "6px" }}>🎊</div>
-                        <div style={{ fontWeight: "900", fontSize: "20px", color: "#FFD700" }}>¡Has ganado!</div>
-                        <div style={{ fontSize: "18px", fontWeight: "700", marginTop: "4px", color: "#fff" }}>{wonPrize.label}</div>
-                      </div>
-                    )}
-
-                    <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                      {!spinning && (
-                        <button style={{ ...S.btn("#FF6B6B"), fontSize: "16px", padding: "14px 32px" }} onClick={handleSpin} disabled={spinning}>
-                          {wonPrize ? "🔄 Volver a girar" : "🎡 ¡Girar!"}
-                        </button>
-                      )}
-                      {spinning && <div style={{ color: "rgba(255,255,255,0.5)", padding: "14px" }}>Girando... 🌀</div>}
-                      {!spinning && <button style={S.dangerBtn} onClick={() => { setShowRoulette(false); setWonPrize(null); }}>Cerrar</button>}
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           )}
