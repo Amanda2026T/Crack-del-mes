@@ -20,6 +20,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
@@ -289,6 +290,38 @@
         await supabase.from("challenges").update({ active: false }).eq("id", challenge.id);
         setChallenge(null);
       }
+      function exportToExcel() {
+        const data = records.map(r => {
+          const cat = catalog.find(c => c.id === r.catalog_id);
+          const dept = departments.find(d => d.id === r.dept_id);
+          return {
+            "Nombre": r.user_name,
+            "Departamento": dept?.name || "—",
+            "Logro": cat?.label || "—",
+            "Descripción": r.description,
+            "Puntos": r.pts,
+            "Fecha": r.date,
+            "Mes": r.month,
+            "Validado": r.validated ? "Sí" : "No",
+            "Comentario manager": r.manager_comment || "—",
+          };
+        });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Logros");
+        // History sheet
+        const histData = history.map(h => ({
+          "Mes": h.label,
+          "Ganador": h.winner,
+          ...Object.fromEntries((h.scores || []).map(s => [s.name, s.pts]))
+        }));
+        if (histData.length > 0) {
+          const ws2 = XLSX.utils.json_to_sheet(histData);
+          XLSX.utils.book_append_sheet(wb, ws2, "Histórico");
+        }
+        XLSX.writeFile(wb, `Meriti_${MONTH_NAMES[now.getMonth()]}_${now.getFullYear()}.xlsx`);
+      }
+
       async function handleSendInvite() {
         if (!inviteEmail.trim()) return;
         const existing = invitations.find(i => i.email === inviteEmail.trim());
@@ -547,6 +580,7 @@
                   <NavItem icon="📝" label="Catálogo" active={view === "catalogo"} onClick={() => setView("catalogo")} />
                   <NavItem icon="⚙️" label="Empresa" active={view === "empresa"} onClick={() => setView("empresa")} />
                   <NavItem icon="🎯" label="Reto colectivo" active={view === "reto"} onClick={() => setView("reto")} />
+                  <NavItem icon="📈" label="Estadísticas" active={view === "stats"} onClick={() => setView("stats")} />
                 </>
               )}
             </nav>
@@ -579,6 +613,7 @@
                 {view === "empresa" && "Configuración de empresa"}
                 {view === "perfil" && "Mi perfil"}
                 {view === "reto" && "Reto Colectivo"}
+                {view === "stats" && "Estadísticas"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {profile.role !== "admin" && (
@@ -1266,6 +1301,146 @@
                   </div>
                 </>
               )}
+
+            {/* ── ESTADÍSTICAS ── */}
+            {view === "stats" && profile.role === "admin" && (() => {
+              // Points by month last 6
+              const last6 = [];
+              for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = `${d.getFullYear()}-${d.getMonth()}`;
+                const label = MONTH_NAMES[d.getMonth()].slice(0,3);
+                const pts = records.filter(r => r.month === key && r.validated).reduce((a,b) => a+b.pts, 0);
+                const count = records.filter(r => r.month === key && r.validated).length;
+                last6.push({ label, pts, count, key });
+              }
+              const maxBar = Math.max(...last6.map(m => m.pts), 1);
+
+              // Top employees all time
+              const topEmployees = teamProfiles.map(p => ({
+                ...p,
+                totalPts: records.filter(r => r.user_id === p.id && r.validated).reduce((a,b) => a+b.pts, 0),
+                totalLogros: records.filter(r => r.user_id === p.id && r.validated).length,
+              })).sort((a,b) => b.totalPts - a.totalPts);
+
+              // Top catalog items
+              const itemUsage = {};
+              records.filter(r => r.validated).forEach(r => { itemUsage[r.catalog_id] = (itemUsage[r.catalog_id] || 0) + 1; });
+              const topItems = Object.entries(itemUsage).sort((a,b) => b[1]-a[1]).slice(0,5).map(([id, count]) => ({ cat: catalog.find(c => c.id === id), count }));
+
+              // Summary stats
+              const totalValidated = records.filter(r => r.validated).length;
+              const totalPending = records.filter(r => !r.validated).length;
+              const totalPtsAllTime = records.filter(r => r.validated).reduce((a,b) => a+b.pts, 0);
+              const avgPtsPerMonth = last6.reduce((a,b) => a+b.pts, 0) / 6;
+
+              return (
+                <>
+                  <div style={S.pageTitle}>Estadísticas</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+                    <div style={S.pageSubtitle}>Resumen de actividad de tu equipo</div>
+                    <button style={S.btnPrimary} onClick={exportToExcel}>⬇️ Exportar Excel</button>
+                  </div>
+
+                  {/* KPI cards */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "24px" }}>
+                    {[
+                      { label: "Logros validados", value: totalValidated, icon: "✅", color: C.teal },
+                      { label: "Logros pendientes", value: totalPending, icon: "⏳", color: C.yellow },
+                      { label: "Puntos totales", value: totalPtsAllTime, icon: "🏆", color: C.green },
+                      { label: "Media pts/mes", value: Math.round(avgPtsPerMonth), icon: "📊", color: C.blue },
+                    ].map(s => (
+                      <div key={s.label} style={{ ...S.statCard(s.color), display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ fontSize: "22px" }}>{s.icon}</div>
+                        <div style={{ fontSize: "28px", fontWeight: "900", color: s.color }}>{s.value}</div>
+                        <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Evolution chart */}
+                  <div style={S.card}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                      <div style={S.sectionLabel}>Evolución del equipo — últimos 6 meses</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", height: "160px", padding: "0 8px" }}>
+                      {last6.map((m) => (
+                        <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%" }}>
+                          <div style={{ fontSize: "12px", fontWeight: "700", color: m.pts > 0 ? C.teal : C.muted }}>{m.pts > 0 ? m.pts : ""}</div>
+                          <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end" }}>
+                            <div style={{ width: "100%", height: `${Math.max((m.pts / maxBar) * 100, m.pts > 0 ? 6 : 2)}%`, background: m.key === monthKey ? C.teal : `${C.teal}50`, borderRadius: "6px 6px 0 0", transition: "height 0.6s ease", minHeight: "2px", position: "relative" }}>
+                              {m.count > 0 && <div style={{ position: "absolute", bottom: "4px", left: "50%", transform: "translateX(-50%)", fontSize: "10px", color: "#fff", fontWeight: "700" }}>{m.count}</div>}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{m.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: "11px", color: C.muted, marginTop: "8px", textAlign: "center" }}>El número dentro de cada barra indica logros registrados ese mes</div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                    {/* Top employees */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Ranking histórico</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {topEmployees.map((u, i) => {
+                          const color = getColor(u.name);
+                          const lv = getLevel(u.totalPts);
+                          return (
+                            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: i === 0 ? `${color}10` : "#F9FAFB", border: `1px solid ${i === 0 ? color+"30" : C.border}` }}>
+                              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px", color: "#fff", flexShrink: 0 }}>{u.name[0]}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "13px", fontWeight: "700" }}>{u.name} <span style={{ ...S.badge(lv.color, `${lv.color}15`), fontSize: "10px" }}>{lv.icon} {lv.label}</span></div>
+                                <div style={{ fontSize: "11px", color: C.muted }}>{u.totalLogros} logros registrados</div>
+                              </div>
+                              <div style={{ fontWeight: "800", color, fontSize: "16px" }}>{u.totalPts} pts</div>
+                            </div>
+                          );
+                        })}
+                        {topEmployees.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin datos aún</div>}
+                      </div>
+                    </div>
+
+                    {/* Top catalog items */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Logros más registrados</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {topItems.map(({ cat, count }, i) => cat && (
+                          <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: "#F9FAFB", border: `1px solid ${C.border}` }}>
+                            <span style={{ fontSize: "22px" }}>{cat.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: "13px", fontWeight: "600" }}>{cat.label}</div>
+                              <div style={{ height: "4px", borderRadius: "2px", background: `${C.teal}20`, marginTop: "4px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${(count / topItems[0].count) * 100}%`, background: C.teal, borderRadius: "2px" }} />
+                              </div>
+                            </div>
+                            <span style={{ ...S.badge(C.teal, `${C.teal}15`), fontSize: "12px" }}>{count}x</span>
+                          </div>
+                        ))}
+                        {topItems.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin datos aún</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Winners history */}
+                  {history.length > 0 && (
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Ganadores históricos</div>
+                      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                        {history.map((h, i) => (
+                          <div key={i} style={{ padding: "12px 16px", borderRadius: "10px", background: "#F9FAFB", border: `1px solid ${C.border}`, minWidth: "160px" }}>
+                            <div style={{ fontSize: "11px", color: C.muted, fontWeight: "600", marginBottom: "4px" }}>{h.label}</div>
+                            <div style={{ fontWeight: "800", color: getColor(h.winner) }}>🥇 {h.winner}</div>
+                            <div style={{ fontSize: "11px", color: C.muted, marginTop: "2px" }}>{(h.scores || []).find(s => s.name === h.winner)?.pts || 0} pts</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* ── RETO COLECTIVO ── */}
             {view === "reto" && profile.role === "admin" && (
