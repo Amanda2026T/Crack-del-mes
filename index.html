@@ -158,6 +158,8 @@
       const [companyMsg, setCompanyMsg] = useState("");
       const logoInputRef = useRef(null);
       const [editCatalogItem, setEditCatalogItem] = useState(null);
+      const [showPickerAdd, setShowPickerAdd] = useState(false);
+      const [showPickerEdit, setShowPickerEdit] = useState(false);
       const [onboardingStep, setOnboardingStep] = useState(0);
       const [showOnboarding, setShowOnboarding] = useState(false);
       const [inviteEmail, setInviteEmail] = useState("");
@@ -989,12 +991,16 @@
                       <div style={{ ...S.sectionLabel, marginBottom: "14px" }}>Añadir nuevo item</div>
                       <div style={{ marginBottom: "10px" }}>
                         <label style={S.label}>Icono</label>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                          {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
-                            <button key={em} onClick={() => setNewCatalogItem(f => ({ ...f, icon: em }))} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `2px solid ${newCatalogItem.icon === em ? C.teal : C.border}`, background: newCatalogItem.icon === em ? `${C.teal}15` : "#fff", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
-                          ))}
+                        <div style={{ position: "relative", display: "inline-block" }}>
+                          <button onClick={() => setShowPickerAdd(v => !v)} style={{ width: "48px", height: "48px", borderRadius: "10px", border: `2px solid ${C.teal}`, background: "#fff", cursor: "pointer", fontSize: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>{newCatalogItem.icon || "⭐"}</button>
+                          {showPickerAdd && (
+                            <div style={{ position: "absolute", top: "54px", left: 0, zIndex: 500, background: "#fff", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", display: "flex", flexWrap: "wrap", gap: "4px", width: "240px" }}>
+                              {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
+                                <button key={em} onClick={() => { setNewCatalogItem(f => ({ ...f, icon: em })); setShowPickerAdd(false); }} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `1.5px solid ${newCatalogItem.icon === em ? C.teal : "transparent"}`, background: newCatalogItem.icon === em ? `${C.teal}15` : "#F9FAFB", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <input style={{ ...S.input, width: "80px" }} placeholder="o escribe" value={newCatalogItem.icon} onChange={e => setNewCatalogItem(f => ({ ...f, icon: e.target.value }))} />
                       </div>
                       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <input style={{ ...S.input, flex: 2, minWidth: "180px" }} placeholder="Nombre del logro..." value={newCatalogItem.label} onChange={e => setNewCatalogItem(f => ({ ...f, label: e.target.value }))} />
@@ -1125,12 +1131,16 @@
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div>
                     <label style={S.label}>Icono</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                      {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
-                        <button key={em} onClick={() => setEditCatalogItem(i => ({ ...i, icon: em }))} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `2px solid ${editCatalogItem.icon === em ? C.teal : C.border}`, background: editCatalogItem.icon === em ? `${C.teal}15` : "#fff", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
-                      ))}
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <button onClick={() => setShowPickerEdit(v => !v)} style={{ width: "48px", height: "48px", borderRadius: "10px", border: `2px solid ${C.teal}`, background: "#fff", cursor: "pointer", fontSize: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>{editCatalogItem.icon || "⭐"}</button>
+                      {showPickerEdit && (
+                        <div style={{ position: "absolute", top: "54px", left: 0, zIndex: 500, background: "#fff", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", display: "flex", flexWrap: "wrap", gap: "4px", width: "240px" }}>
+                          {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
+                            <button key={em} onClick={() => { setEditCatalogItem(i => ({ ...i, icon: em })); setShowPickerEdit(false); }} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `1.5px solid ${editCatalogItem.icon === em ? C.teal : "transparent"}`, background: editCatalogItem.icon === em ? `${C.teal}15` : "#F9FAFB", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <input style={{ ...S.input, width: "80px" }} placeholder="o escribe" value={editCatalogItem.icon} onChange={e => setEditCatalogItem(i => ({ ...i, icon: e.target.value }))} />
                   </div>
                   <div style={{ display: "flex", gap: "10px" }}>
                     <div style={{ flex: 1 }}><label style={S.label}>Nombre</label><input style={S.input} value={editCatalogItem.label} onChange={e => setEditCatalogItem(i => ({ ...i, label: e.target.value }))} /></div>
