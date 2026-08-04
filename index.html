@@ -37,6 +37,14 @@
     ];
 
     const BRAND_COLORS = ["#00C2AD","#00DD99","#FFCF2B","#6BF279","#0096AD","#99F999"];
+    const LEVELS = [
+      { min: 0,   max: 49,  label: "Rookie",  icon: "🌱", color: "#6B7280" },
+      { min: 50,  max: 149, label: "Pro",      icon: "⚡", color: "#00C2AD" },
+      { min: 150, max: 299, label: "Experto",  icon: "💎", color: "#0096AD" },
+      { min: 300, max: Infinity, label: "Leyenda", icon: "🏆", color: "#FFCF2B" },
+    ];
+    function getLevel(totalPts) { return LEVELS.find(l => totalPts >= l.min && totalPts <= l.max) || LEVELS[0]; }
+
     const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
@@ -160,6 +168,12 @@
       const [editCatalogItem, setEditCatalogItem] = useState(null);
       const [showPickerAdd, setShowPickerAdd] = useState(false);
       const [showPickerEdit, setShowPickerEdit] = useState(false);
+      const [challenge, setChallenge] = useState(null);
+      const [challengeForm, setChallengeForm] = useState({ title: "", description: "", targetPts: "", prize: "", deadline: "" });
+      const [challengeMsg, setChallengeMsg] = useState("");
+      const [showChallengeForm, setShowChallengeForm] = useState(false);
+      const [likes, setLikes] = useState({});
+      const [myLikes, setMyLikes] = useState([]);
       const [onboardingStep, setOnboardingStep] = useState(0);
       const [showOnboarding, setShowOnboarding] = useState(false);
       const [inviteEmail, setInviteEmail] = useState("");
@@ -184,7 +198,7 @@
       useEffect(() => {
         if (profile) {
           loadRecords(); loadProfiles(); loadHistory(); loadCatalog();
-          loadPrizes(); loadNotifications(); loadDepartments(); loadCompany(); loadInvitations(); checkOnboarding();
+          loadPrizes(); loadNotifications(); loadDepartments(); loadCompany(); loadInvitations(); checkOnboarding(); loadChallenge(); loadLikes();
         }
       }, [profile]);
 
@@ -240,6 +254,40 @@
         const { data: profs } = await supabase.from("profiles").select("id").eq("role", "user").limit(1);
         const done = comp && depts && depts.length > 0 && profs && profs.length > 0;
         if (!done) setShowOnboarding(true);
+      }
+      async function loadChallenge() {
+        const { data } = await supabase.from("challenges").select("*").eq("active", true).limit(1).single();
+        if (data) setChallenge(data);
+        else setChallenge(null);
+      }
+      async function loadLikes() {
+        const { data: allLikes } = await supabase.from("likes").select("*");
+        const likeCounts = {};
+        (allLikes || []).forEach(l => { likeCounts[l.to_user_id] = (likeCounts[l.to_user_id] || 0) + 1; });
+        setLikes(likeCounts);
+        const today = new Date().toISOString().split("T")[0];
+        const myL = (allLikes || []).filter(l => l.from_user_id === session.user.id && l.date === today).map(l => l.to_user_id);
+        setMyLikes(myL);
+      }
+      async function handleLike(toUserId) {
+        if (myLikes.includes(toUserId) || toUserId === session.user.id) return;
+        const today = new Date().toISOString().split("T")[0];
+        await supabase.from("likes").insert({ from_user_id: session.user.id, to_user_id: toUserId, date: today });
+        await supabase.from("notifications").insert({ user_id: toUserId, message: `👏 ${profile.name} te ha dado un aplauso`, read: false });
+        await loadLikes();
+      }
+      async function handleSaveChallenge() {
+        if (!challengeForm.title.trim() || !challengeForm.targetPts || !challengeForm.deadline) { setChallengeMsg("⚠️ Completa título, objetivo y fecha límite."); return; }
+        await supabase.from("challenges").update({ active: false }).eq("active", true);
+        await supabase.from("challenges").insert({ title: challengeForm.title, description: challengeForm.description, target_pts: parseInt(challengeForm.targetPts), prize: challengeForm.prize, deadline: challengeForm.deadline, active: true, month: monthKey });
+        setChallengeForm({ title: "", description: "", targetPts: "", prize: "", deadline: "" });
+        setShowChallengeForm(false);
+        await loadChallenge();
+      }
+      async function handleCloseChallenge() {
+        if (!challenge) return;
+        await supabase.from("challenges").update({ active: false }).eq("id", challenge.id);
+        setChallenge(null);
       }
       async function handleSendInvite() {
         if (!inviteEmail.trim()) return;
@@ -420,6 +468,9 @@
       const dMax = Math.max(...dPoints.map(u => u.pts), 1);
 
       const visibleRecords = profile?.role === "admin" ? records : records.filter(r => r.user_id === session?.user?.id);
+      const getTotalPts = (userId) => records.filter(r => r.user_id === userId && r.validated).reduce((a, b) => a + b.pts, 0);
+      const challengeCurrentPts = challenge ? records.filter(r => r.month === challenge.month && r.validated).reduce((a, b) => a + b.pts, 0) : 0;
+      const challengeProgress = challenge ? Math.min(Math.round((challengeCurrentPts / challenge.target_pts) * 100), 100) : 0;
       const unreadCount = notifications.filter(n => !n.read).length;
       const pendingCount = records.filter(r => !r.validated).length;
 
@@ -494,6 +545,7 @@
                   <NavItem icon="🏢" label="Departamentos" active={view === "departamentos"} onClick={() => setView("departamentos")} />
                   <NavItem icon="📝" label="Catálogo" active={view === "catalogo"} onClick={() => setView("catalogo")} />
                   <NavItem icon="⚙️" label="Empresa" active={view === "empresa"} onClick={() => setView("empresa")} />
+                  <NavItem icon="🎯" label="Reto colectivo" active={view === "reto"} onClick={() => setView("reto")} />
                 </>
               )}
             </nav>
@@ -525,6 +577,7 @@
                 {view === "catalogo" && "Catálogo de logros"}
                 {view === "empresa" && "Configuración de empresa"}
                 {view === "perfil" && "Mi perfil"}
+                {view === "reto" && "Reto Colectivo"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {profile.role !== "admin" && (
@@ -583,6 +636,34 @@
                     </div>
                   )}
 
+                  {/* Challenge banner */}
+                  {challenge && isCurrent && (
+                    <div style={{ background: `linear-gradient(135deg, ${C.teal}15, ${C.green}08)`, border: `1px solid ${C.teal}30`, borderRadius: "12px", padding: "20px 24px", marginBottom: "20px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                            <span style={{ fontSize: "20px" }}>🎯</span>
+                            <span style={{ fontWeight: "800", fontSize: "16px" }}>Reto del equipo</span>
+                            <span style={{ ...S.badge(C.teal, `${C.teal}15`) }}>Activo</span>
+                          </div>
+                          <div style={{ fontWeight: "700", fontSize: "17px", marginBottom: "4px" }}>{challenge.title}</div>
+                          {challenge.description && <div style={{ fontSize: "13px", color: C.muted, marginBottom: "10px" }}>{challenge.description}</div>}
+                          {challenge.prize && <div style={{ fontSize: "13px", marginBottom: "12px" }}>🎁 Premio: <strong>{challenge.prize}</strong></div>}
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ flex: 1, height: "8px", borderRadius: "4px", background: `${C.teal}20`, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${challengeProgress}%`, background: `linear-gradient(90deg, ${C.teal}, ${C.green})`, borderRadius: "4px", transition: "width 0.8s ease" }} />
+                            </div>
+                            <span style={{ fontSize: "13px", fontWeight: "700", color: C.teal, whiteSpace: "nowrap" }}>{challengeCurrentPts} / {challenge.target_pts} pts</span>
+                          </div>
+                          <div style={{ fontSize: "12px", color: C.muted, marginTop: "6px" }}>Fecha límite: {challenge.deadline} · {challengeProgress}% completado</div>
+                        </div>
+                        {profile.role === "admin" && (
+                          <button style={S.btnDanger} onClick={handleCloseChallenge}>Cerrar reto</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Leaderboard */}
                   <div style={S.card}>
                     <div style={S.sectionLabel}>Clasificación</div>
@@ -602,14 +683,26 @@
                               </div>
                               <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "14px", color: "#fff", flexShrink: 0 }}>{u.name[0]}</div>
                               <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "5px" }}>{u.name}
-                                  {departments.find(d => d.id === u.dept_id) && <span style={{ marginLeft: "8px", ...S.badge(C.teal, `${C.teal}15`) }}>{departments.find(d => d.id === u.dept_id)?.name}</span>}
+                                <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "5px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                  {u.name}
+                                  {(() => { const lv = getLevel(getTotalPts(u.id)); return <span style={{ ...S.badge(lv.color, `${lv.color}15`), fontSize: "11px" }}>{lv.icon} {lv.label}</span>; })()}
+                                  {departments.find(d => d.id === u.dept_id) && <span style={{ ...S.badge(C.teal, `${C.teal}15`), fontSize: "11px" }}>{departments.find(d => d.id === u.dept_id)?.name}</span>}
                                 </div>
                                 <div style={{ height: "5px", borderRadius: "3px", background: `${color}30`, overflow: "hidden" }}>
                                   <div style={{ height: "100%", width: `${Math.max((u.pts / dMax) * 100, 3)}%`, background: color, borderRadius: "3px", transition: "width 0.8s ease" }} />
                                 </div>
                               </div>
-                              <div style={{ fontSize: "22px", fontWeight: "900", color, flexShrink: 0 }}>{u.pts}<span style={{ fontSize: "12px", color: C.muted, fontWeight: "500" }}> pts</span></div>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px", flexShrink: 0 }}>
+                                <div style={{ fontSize: "22px", fontWeight: "900", color }}>{u.pts}<span style={{ fontSize: "12px", color: C.muted, fontWeight: "500" }}> pts</span></div>
+                                {profile.role !== "admin" && u.id !== session.user.id && (
+                                  <button onClick={() => handleLike(u.id)} style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "20px", border: `1px solid ${myLikes.includes(u.id) ? C.teal : C.border}`, background: myLikes.includes(u.id) ? `${C.teal}15` : "#fff", cursor: myLikes.includes(u.id) ? "default" : "pointer", fontSize: "12px", fontWeight: "600", color: myLikes.includes(u.id) ? C.teal : C.muted, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                    👏 {likes[u.id] || 0}
+                                  </button>
+                                )}
+                                {profile.role === "admin" && (
+                                  <span style={{ fontSize: "12px", color: C.muted }}>👏 {likes[u.id] || 0}</span>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -1172,6 +1265,81 @@
                   </div>
                 </>
               )}
+
+            {/* ── RETO COLECTIVO ── */}
+            {view === "reto" && profile.role === "admin" && (
+              <>
+                <div style={S.pageTitle}>Reto Colectivo</div>
+                <div style={S.pageSubtitle}>Lanza un objetivo compartido para motivar a todo el equipo</div>
+
+                {challenge ? (
+                  <div style={S.card}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                          <span style={S.badge(C.teal, `${C.teal}15`)}>🎯 Reto activo</span>
+                        </div>
+                        <div style={{ fontSize: "20px", fontWeight: "800" }}>{challenge.title}</div>
+                        {challenge.description && <div style={{ color: C.muted, fontSize: "14px", marginTop: "4px" }}>{challenge.description}</div>}
+                      </div>
+                      <button style={S.btnDanger} onClick={handleCloseChallenge}>Cerrar reto</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "16px", marginBottom: "20px" }}>
+                      {[
+                        { label: "Objetivo", value: `${challenge.target_pts} pts`, icon: "🎯" },
+                        { label: "Conseguidos", value: `${challengeCurrentPts} pts`, icon: "📊" },
+                        { label: "Fecha límite", value: challenge.deadline, icon: "📅" },
+                      ].map(s => (
+                        <div key={s.label} style={{ ...S.statCard(C.teal), display: "flex", gap: "12px", alignItems: "center" }}>
+                          <span style={{ fontSize: "24px" }}>{s.icon}</span>
+                          <div>
+                            <div style={{ fontSize: "18px", fontWeight: "800", color: C.teal }}>{s.value}</div>
+                            <div style={{ fontSize: "12px", color: C.muted }}>{s.label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {challenge.prize && <div style={{ padding: "12px 16px", borderRadius: "8px", background: `${C.yellow}15`, border: `1px solid ${C.yellow}30`, fontSize: "14px" }}>🎁 Premio: <strong>{challenge.prize}</strong></div>}
+                    <div style={{ marginTop: "16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: "600" }}>Progreso del equipo</span>
+                        <span style={{ fontSize: "13px", fontWeight: "700", color: C.teal }}>{challengeProgress}%</span>
+                      </div>
+                      <div style={{ height: "10px", borderRadius: "5px", background: `${C.teal}20`, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${challengeProgress}%`, background: `linear-gradient(90deg, ${C.teal}, ${C.green})`, borderRadius: "5px", transition: "width 0.8s ease" }} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ ...S.card, textAlign: "center", padding: "48px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "12px" }}>🎯</div>
+                    <div style={{ fontWeight: "700", fontSize: "17px", marginBottom: "6px" }}>No hay ningún reto activo</div>
+                    <div style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>Lanza un reto colectivo para motivar a tu equipo</div>
+                    <button style={S.btnPrimary} onClick={() => setShowChallengeForm(true)}>🚀 Lanzar nuevo reto</button>
+                  </div>
+                )}
+
+                {!challenge && showChallengeForm && (
+                  <div style={S.card}>
+                    <div style={{ fontWeight: "800", fontSize: "17px", marginBottom: "20px" }}>Nuevo reto colectivo</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      <div><label style={S.label}>Título del reto *</label><input style={S.input} placeholder="Ej: ¡Llegamos a 300 puntos este mes!" value={challengeForm.title} onChange={e => setChallengeForm(f => ({ ...f, title: e.target.value }))} /></div>
+                      <div><label style={S.label}>Descripción (opcional)</label><input style={S.input} placeholder="Explica el reto al equipo..." value={challengeForm.description} onChange={e => setChallengeForm(f => ({ ...f, description: e.target.value }))} /></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                        <div><label style={S.label}>Objetivo (puntos) *</label><input style={S.input} type="number" min="1" placeholder="Ej: 300" value={challengeForm.targetPts} onChange={e => setChallengeForm(f => ({ ...f, targetPts: e.target.value }))} /></div>
+                        <div><label style={S.label}>Fecha límite *</label><input style={S.input} type="date" value={challengeForm.deadline} onChange={e => setChallengeForm(f => ({ ...f, deadline: e.target.value }))} /></div>
+                      </div>
+                      <div><label style={S.label}>Premio 🎁</label><input style={S.input} placeholder="Ej: Viernes de salida anticipada, Pizza para todos..." value={challengeForm.prize} onChange={e => setChallengeForm(f => ({ ...f, prize: e.target.value }))} /></div>
+                      {challengeMsg && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: "#FEF3C7", color: "#92400E" }}>{challengeMsg}</div>}
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <button style={S.btnSecondary} onClick={() => setShowChallengeForm(false)}>Cancelar</button>
+                        <button style={S.btnPrimary} onClick={handleSaveChallenge}>🚀 Lanzar reto</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             </div>
           </div>
