@@ -534,6 +534,7 @@
               <NavItem icon="📊" label="Dashboard" active={view === "dashboard"} onClick={() => setView("dashboard")} />
               {profile.role !== "admin" && <NavItem icon="➕" label="Registrar logro" active={view === "registrar"} onClick={() => setView("registrar")} />}
               <NavItem icon="📋" label="Historial" active={view === "historial"} onClick={() => setView("historial")} />
+              {profile.role !== "admin" && <NavItem icon="👤" label="Mi perfil" active={view === "perfil"} onClick={() => setView("perfil")} />}
               {(profile.role === "admin" || (winner && winner.id === profile.id)) && (
                 <NavItem icon="🎡" label="Ruleta" active={view === "ruleta"} onClick={() => setView("ruleta")} />
               )}
