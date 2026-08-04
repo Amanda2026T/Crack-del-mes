@@ -524,6 +524,7 @@
                 {view === "departamentos" && "Departamentos"}
                 {view === "catalogo" && "Catálogo de logros"}
                 {view === "empresa" && "Configuración de empresa"}
+                {view === "perfil" && "Mi perfil"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {profile.role !== "admin" && (
@@ -678,6 +679,130 @@
                   </div>
                 </div>
               )}
+
+              {/* ── PERFIL ── */}
+              {view === "perfil" && profile.role !== "admin" && (() => {
+                const myRecords = records.filter(r => r.user_id === session.user.id);
+                const myValidated = myRecords.filter(r => r.validated);
+                const totalPts = myValidated.reduce((a, b) => a + b.pts, 0);
+                const thisMonthPts = myValidated.filter(r => r.month === monthKey).reduce((a, b) => a + b.pts, 0);
+                const myRank = currentPoints.findIndex(p => p.id === profile.id) + 1;
+                const color = getColor(profile.name);
+
+                // Points by month (last 6 months)
+                const last6 = [];
+                for (let i = 5; i >= 0; i--) {
+                  const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                  const key = `${d.getFullYear()}-${d.getMonth()}`;
+                  const label = MONTH_NAMES[d.getMonth()].slice(0, 3);
+                  const pts = myValidated.filter(r => r.month === key).reduce((a, b) => a + b.pts, 0);
+                  last6.push({ label, pts, key });
+                }
+                const maxBar = Math.max(...last6.map(m => m.pts), 1);
+
+                // Most used catalog items
+                const itemCount = {};
+                myValidated.forEach(r => { itemCount[r.catalog_id] = (itemCount[r.catalog_id] || 0) + 1; });
+                const topItems = Object.entries(itemCount).sort((a,b) => b[1]-a[1]).slice(0,3).map(([id, count]) => ({ cat: catalog.find(c => c.id === id), count }));
+
+                // Historical ranking positions
+                const historicalWins = history.filter(h => h.winner === profile.name).length;
+
+                return (
+                  <>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "28px" }}>
+                      <div style={{ width: "72px", height: "72px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "28px", color: "#fff", flexShrink: 0 }}>{profile.name[0]}</div>
+                      <div>
+                        <div style={{ fontSize: "26px", fontWeight: "900" }}>{profile.name}</div>
+                        <div style={{ fontSize: "14px", color: C.muted }}>{profile.email}</div>
+                        {departments.find(d => d.id === profile.dept_id) && (
+                          <span style={{ ...S.badge(C.teal, `${C.teal}15`), marginTop: "6px" }}>{departments.find(d => d.id === profile.dept_id)?.name}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stat cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+                      {[
+                        { label: "Puntos este mes", value: thisMonthPts, icon: "📅", color: C.teal },
+                        { label: "Puntos totales", value: totalPts, icon: "🏆", color: C.green },
+                        { label: "Posición actual", value: myRank > 0 ? `#${myRank}` : "—", icon: "🎯", color: C.yellow },
+                        { label: "Meses ganados", value: historicalWins, icon: "🥇", color: "#F59E0B" },
+                      ].map(s => (
+                        <div key={s.label} style={{ ...S.statCard(s.color), display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div style={{ fontSize: "22px" }}>{s.icon}</div>
+                          <div style={{ fontSize: "26px", fontWeight: "900", color: s.color }}>{s.value}</div>
+                          <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Evolution chart */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Evolución de puntos — últimos 6 meses</div>
+                      <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", height: "140px", padding: "0 8px" }}>
+                        {last6.map((m, i) => (
+                          <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%" }}>
+                            <div style={{ fontSize: "12px", fontWeight: "700", color: m.pts > 0 ? color : C.muted }}>{m.pts > 0 ? m.pts : ""}</div>
+                            <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end" }}>
+                              <div style={{ width: "100%", height: `${Math.max((m.pts / maxBar) * 100, m.pts > 0 ? 8 : 3)}%`, background: m.key === monthKey ? color : `${color}50`, borderRadius: "6px 6px 0 0", transition: "height 0.6s ease", minHeight: "3px" }} />
+                            </div>
+                            <div style={{ fontSize: "11px", color: C.muted, fontWeight: "600" }}>{m.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Top logros */}
+                    {topItems.length > 0 && (
+                      <div style={S.card}>
+                        <div style={S.sectionLabel}>Logros más frecuentes</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                          {topItems.map(({ cat, count }) => cat && (
+                            <div key={cat.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: "#F9FAFB", border: `1px solid ${C.border}` }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <span style={{ fontSize: "20px" }}>{cat.icon}</span>
+                                <span style={{ fontWeight: "600", fontSize: "14px" }}>{cat.label}</span>
+                              </div>
+                              <span style={S.badge(color, `${color}15`)}>{count}x</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent activity */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Actividad reciente</div>
+                      {myRecords.slice(0, 8).length === 0 ? (
+                        <div style={{ color: C.muted, textAlign: "center", padding: "24px 0" }}>Sin logros registrados aún</div>
+                      ) : (
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead><tr><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Fecha</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th></tr></thead>
+                          <tbody>
+                            {myRecords.slice(0, 8).map(r => {
+                              const cat = catalog.find(c => c.id === r.catalog_id);
+                              return (
+                                <tr key={r.id}>
+                                  <td style={S.td}>{cat?.icon} {cat?.label}</td>
+                                  <td style={{ ...S.td, color: C.muted }}>{r.description}</td>
+                                  <td style={{ ...S.td, color: C.muted }}>{r.date}</td>
+                                  <td style={{ ...S.td, fontWeight: "700", color }}>{r.pts} pts</td>
+                                  <td style={S.td}>
+                                    {r.validated ? <span style={S.badge("#059669","#D1FAE5")}>✓ Validado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}
+                                    {r.manager_comment && <div style={{ fontSize: "11px", color: C.muted, marginTop: "3px" }}>💬 {r.manager_comment}</div>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* ── HISTORIAL ── */}
               {view === "historial" && (
