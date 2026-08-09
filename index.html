@@ -128,6 +128,11 @@
       const [editCatalogItem, setEditCatalogItem] = useState(null);
       const [showPickerAdd, setShowPickerAdd] = useState(false);
       const [showPickerEdit, setShowPickerEdit] = useState(false);
+      const [visibility, setVisibility] = useState("all"); // "all" or "dept"
+      const [congratsTarget, setCongratsTarget] = useState(null);
+      const [congratsMsg, setCongratsMsg] = useState("");
+      const [congratsEmoji, setCongratsEmoji] = useState("🎉");
+      const [congratsSent, setCongratsSent] = useState("");
       const [darkMode, setDarkMode] = useState(() => localStorage.getItem("meriti_dark") === "true");
       const [challenge, setChallenge] = useState(null);
       const [challengeForm, setChallengeForm] = useState({ title: "", description: "", targetPts: "", prize: "", deadline: "" });
@@ -207,6 +212,7 @@
         const { data } = await supabase.from("company_settings").select("*").eq("id", profile.company_id).single();
         if (data) {
           setCompany(data);
+          setVisibility(data.visibility || "all");
           setCompanyForm({
             name: data.name || "",
             logo: data.logo || "",
@@ -302,6 +308,21 @@
         XLSX.writeFile(wb, `Meriti_${MONTH_NAMES[now.getMonth()]}_${now.getFullYear()}.xlsx`);
       }
 
+      async function handleSendCongrats() {
+        if (!congratsTarget || !congratsMsg.trim()) return;
+        const msg = `${congratsEmoji} ${profile.role === "admin" ? "El manager" : profile.name} te ha enviado un mensaje: "${congratsMsg}"`;
+        await supabase.from("notifications").insert({ user_id: congratsTarget.id, message: msg, read: false, company_id: companyId });
+        setCongratsTarget(null);
+        setCongratsMsg("");
+        setCongratsEmoji("🎉");
+        setCongratsSent("✅ Mensaje enviado");
+        setTimeout(() => setCongratsSent(""), 3000);
+      }
+      async function handleSaveVisibility(v) {
+        if (!profile?.company_id) return;
+        await supabase.from("company_settings").update({ visibility: v }).eq("id", profile.company_id);
+        setVisibility(v);
+      }
       async function handleSendInvite() {
         if (!inviteEmail.trim()) return;
         const existing = invitations.find(i => i.email === inviteEmail.trim());
@@ -773,6 +794,9 @@
                                 {profile.role === "admin" && (
                                   <span style={{ fontSize: "12px", color: C.muted }}>👏 {likes[u.id] || 0}</span>
                                 )}
+                                <button onClick={() => { setCongratsTarget(u); setCongratsMsg(""); setCongratsEmoji("🎉"); }} style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "20px", border: `1px solid ${C.border}`, background: "#fff", cursor: "pointer", fontSize: "12px", fontWeight: "600", color: C.muted, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                  ✉️
+                                </button>
                               </div>
                             </div>
                           );
@@ -1355,6 +1379,21 @@
                           <span style={{ padding: "4px 12px", borderRadius: "20px", background: companyForm.color3, color: "#000", fontSize: "12px", fontWeight: "700" }}>Acento</span>
                         </div>
                       </div>
+                      <div>
+                        <label style={S.label}>Visibilidad del ranking</label>
+                        <div style={{ fontSize: "13px", color: C.muted, marginBottom: "12px" }}>Define qué pueden ver los empleados en el dashboard</div>
+                        <div style={{ display: "flex", gap: "12px" }}>
+                          {[
+                            { value: "all", label: "🌍 Todos ven todo", desc: "Todos los empleados ven el ranking completo" },
+                            { value: "dept", label: "🏢 Solo su departamento", desc: "Cada empleado solo ve su propio departamento" },
+                          ].map(opt => (
+                            <div key={opt.value} onClick={() => handleSaveVisibility(opt.value)} style={{ flex: 1, padding: "14px 16px", borderRadius: "10px", border: `2px solid ${visibility === opt.value ? C.teal : C.border}`, background: visibility === opt.value ? `${C.teal}08` : "#fff", cursor: "pointer" }}>
+                              <div style={{ fontWeight: "700", fontSize: "14px", marginBottom: "4px" }}>{opt.label}</div>
+                              <div style={{ fontSize: "12px", color: C.muted }}>{opt.desc}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                       <button style={S.btnPrimary} onClick={handleSaveCompany}>Guardar cambios</button>
                     </div>
                   </div>
@@ -1584,6 +1623,39 @@
 
             </div>
           </div>
+
+          {/* ── MODAL ENHORABUENA ── */}
+          {congratsTarget && (
+            <div style={S.overlay} onClick={() => setCongratsTarget(null)}>
+              <div style={{ ...S.modal, maxWidth: "440px" }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontWeight: "800", fontSize: "18px", marginBottom: "6px" }}>✉️ Enviar mensaje</div>
+                <div style={{ fontSize: "13px", color: C.muted, marginBottom: "20px" }}>Para: <strong>{congratsTarget.name}</strong></div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div>
+                    <label style={S.label}>Emoji</label>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
+                      {["🎉","👏","🏆","⭐","💪","🔥","🎯","❤️","😊","🚀"].map(em => (
+                        <button key={em} onClick={() => setCongratsEmoji(em)} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `2px solid ${congratsEmoji === em ? C.teal : C.border}`, background: congratsEmoji === em ? `${C.teal}15` : "#fff", cursor: "pointer", fontSize: "18px" }}>{em}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={S.label}>Mensaje</label>
+                    <textarea style={{ ...S.input, minHeight: "80px", resize: "vertical" }} placeholder="Escribe tu mensaje..." value={congratsMsg} onChange={e => setCongratsMsg(e.target.value)} />
+                  </div>
+                  {congratsMsg.trim() && (
+                    <div style={{ padding: "10px 14px", borderRadius: "8px", background: `${C.teal}10`, border: `1px solid ${C.teal}30`, fontSize: "13px" }}>
+                      <strong>Vista previa:</strong> {congratsEmoji} {profile.role === "admin" ? "El manager" : profile.name} te ha enviado un mensaje: "{congratsMsg}"
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                    <button style={S.btnSecondary} onClick={() => setCongratsTarget(null)}>Cancelar</button>
+                    <button style={S.btnPrimary} onClick={handleSendCongrats} disabled={!congratsMsg.trim()}>Enviar mensaje</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── ONBOARDING ── */}
           {showOnboarding && profile?.role === "admin" && (
