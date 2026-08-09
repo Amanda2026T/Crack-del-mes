@@ -3,50 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crack del Mes — Educación</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <title>Meriti</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a1a; color: #e8e8ff; font-family: 'DM Sans', sans-serif; }
+    body { background: #f7f8fa; color: #111827; font-family: 'Plus Jakarta Sans', sans-serif; transition: background 0.3s, color 0.3s; }
+    body.dark { background: #061a0e; color: #f0fdf4; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     #root { min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #f1f1f1; } ::-webkit-scrollbar-thumb { background: #00C2AD; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div id="root"></div>
-
-  <!-- React + Babel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
-    // ── CREDENCIALES SUPABASE ──────────────────────────────────────────────
-    const SUPABASE_URL = "https://xajyhdcozfjynttqfwtw.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhanloZGNvemZqeW50dHFmd3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3ODczNTUsImV4cCI6MjA4ODM2MzM1NX0.OFNIv1IdoSUmJfP0KpRh99usChG3exWKvJWaKKhSaY4";
+    const SUPABASE_URL = "https://zuuintnjucfptemiqnoa.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1dWludG5qdWNmcHRlbWlxbm9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Nzc1NjIsImV4cCI6MjEwMTM1MzU2Mn0.p5pxg9b6Ll4DXPEUDxfa-w2Etz-s-otI6R7BYKYupVo";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    // ──────────────────────────────────────────────────────────────────────
 
-    const CATALOG = [
-      { id: 1, label: "Curso publicado en fecha", pts: 10, icon: "🎓" },
-      { id: 2, label: "Colaboración con otro departamento/proyecto", pts: 4, icon: "🤝" },
-      { id: 3, label: "Propuesta de mejora técnica/edición/creación", pts: 5, icon: "💡" },
-      { id: 4, label: "Control de Calidad", pts: 1, icon: "✅" },
-      { id: 5, label: "Bonus por entrega antes de tiempo", pts: 3, icon: "⚡" },
-      { id: 6, label: "Resolución de incidencia", pts: 1, icon: "🔧" },
+    const DEFAULT_CATALOG = [
+      { label: "Curso publicado en fecha", pts: 10, icon: "🎓" },
+      { label: "Colaboración con otro departamento", pts: 4, icon: "🤝" },
+      { label: "Propuesta de mejora", pts: 5, icon: "💡" },
+      { label: "Control de Calidad", pts: 1, icon: "✅" },
+      { label: "Entrega antes de tiempo", pts: 3, icon: "⚡" },
+      { label: "Resolución de incidencia", pts: 1, icon: "🔧" },
     ];
 
-    const PALETTE = [
-      { main: "#FF6B6B", glow: "rgba(255,107,107,0.4)" },
-      { main: "#4ECDC4", glow: "rgba(78,205,196,0.4)" },
-      { main: "#FFE66D", glow: "rgba(255,230,109,0.4)" },
-      { main: "#a78bfa", glow: "rgba(167,139,250,0.4)" },
+    // BRAND_COLORS set dynamically after company loads
+    const LEVELS = [
+      { min: 0,   max: 49,  label: "Rookie",  icon: "🌱", color: "#6B7280" },
+      { min: 50,  max: 149, label: "Pro",      icon: "⚡", color: "#00C2AD" },
+      { min: 150, max: 299, label: "Experto",  icon: "💎", color: "#0096AD" },
+      { min: 300, max: Infinity, label: "Leyenda", icon: "🏆", color: "#FFCF2B" },
     ];
+    function getLevel(totalPts) { return LEVELS.find(l => totalPts >= l.min && totalPts <= l.max) || LEVELS[0]; }
 
     const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
     const now = new Date();
@@ -54,43 +54,37 @@
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const isLastDay = now.getDate() === lastDayOfMonth;
 
-    function getUserColor(name, allNames) {
-      const idx = [...allNames].sort().indexOf(name);
-      return PALETTE[idx % PALETTE.length] || PALETTE[0];
-    }
-
-    const S = {
-      app: { minHeight: "100vh", background: "linear-gradient(135deg, #0a0a1a 0%, #0f0f2e 50%, #0a0a1a 100%)", fontFamily: "'DM Sans', sans-serif", color: "#e8e8ff" },
-      nav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 100 },
-      logo: { fontSize: "22px", fontWeight: "800", letterSpacing: "-0.5px", background: "linear-gradient(90deg, #FF6B6B, #FFE66D, #4ECDC4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-      navBtn: (active) => ({ padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: "600", background: active ? "rgba(255,255,255,0.12)" : "transparent", color: active ? "#fff" : "rgba(255,255,255,0.55)", transition: "all 0.2s" }),
-      userBadge: { display: "flex", alignItems: "center", gap: "10px", padding: "6px 14px", borderRadius: "20px", background: "rgba(255,255,255,0.07)", fontSize: "13px", fontWeight: "600" },
-      main: { maxWidth: "900px", margin: "0 auto", padding: "32px 20px" },
-      card: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "20px", padding: "28px", marginBottom: "24px", backdropFilter: "blur(8px)" },
-      sectionTitle: { fontSize: "13px", fontWeight: "700", letterSpacing: "2px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: "20px" },
-      input: { width: "100%", padding: "12px 16px", borderRadius: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8ff", fontSize: "14px", outline: "none", boxSizing: "border-box" },
-      select: { width: "100%", padding: "12px 16px", borderRadius: "10px", background: "rgba(20,20,50,0.9)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8ff", fontSize: "14px", outline: "none", boxSizing: "border-box" },
-      label: { fontSize: "12px", fontWeight: "700", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "6px", display: "block" },
-      btn: (color = "#4ECDC4") => ({ padding: "12px 24px", borderRadius: "10px", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${color}, ${color}99)`, color: "#000", fontWeight: "800", fontSize: "14px", boxShadow: `0 4px 20px ${color}44`, transition: "transform 0.15s" }),
-      smallBtn: (c = "#4ECDC4") => ({ padding: "6px 12px", borderRadius: "6px", border: "none", cursor: "pointer", background: "rgba(78,205,196,0.15)", color: c, fontSize: "12px", fontWeight: "700" }),
-      dangerBtn: { padding: "6px 12px", borderRadius: "6px", border: "none", cursor: "pointer", background: "rgba(255,80,80,0.15)", color: "#ff6b6b", fontSize: "12px", fontWeight: "700" },
-      th: { textAlign: "left", padding: "10px 14px", fontSize: "11px", fontWeight: "700", letterSpacing: "1.5px", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.07)" },
-      td: { padding: "12px 14px", fontSize: "13px", borderBottom: "1px solid rgba(255,255,255,0.05)" },
-      badge: (v) => ({ display: "inline-block", padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", background: v ? "rgba(78,205,196,0.15)" : "rgba(255,230,109,0.15)", color: v ? "#4ECDC4" : "#FFE66D" }),
-      roleBadge: (r) => ({ display: "inline-block", padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", background: r === "admin" ? "rgba(255,230,109,0.15)" : r === "user" ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.08)", color: r === "admin" ? "#FFE66D" : r === "user" ? "#4ECDC4" : "rgba(255,255,255,0.4)" }),
-      overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" },
-      modal: { background: "#0f0f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "20px", padding: "32px", width: "90%", maxWidth: "480px" },
-      loginWrap: { minHeight: "100vh", background: "linear-gradient(135deg, #0a0a1a 0%, #0f0f2e 50%, #0a0a1a 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
-      loginCard: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "24px", padding: "48px", width: "100%", maxWidth: "420px", backdropFilter: "blur(12px)" },
-      loginTitle: { fontSize: "32px", fontWeight: "900", textAlign: "center", marginBottom: "8px", background: "linear-gradient(90deg, #FF6B6B, #FFE66D, #4ECDC4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-      error: { color: "#FF6B6B", fontSize: "13px", textAlign: "center", padding: "8px", background: "rgba(255,107,107,0.08)", borderRadius: "8px" },
-      success: { color: "#4ECDC4", fontSize: "13px", padding: "8px", background: "rgba(78,205,196,0.08)", borderRadius: "8px" },
-      spinner: { display: "inline-block", width: "18px", height: "18px", border: "2px solid rgba(255,255,255,0.15)", borderTop: "2px solid #4ECDC4", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
+    // ── STYLES ──────────────────────────────────────────────────────────────
+    const LIGHT = {
+      teal: "#00C2AD", green: "#00DD99", yellow: "#FFCF2B",
+      mint: "#6BF279", blue: "#0096AD", cream: "#F2F2E7",
+      dark: "#091E05", text: "#111827", muted: "#6B7280",
+      bg: "#f7f8fa", card: "#ffffff", border: "#E5E7EB",
+    };
+    const DARK = {
+      teal: "#00DD99", green: "#00C2AD", yellow: "#FFCF2B",
+      mint: "#6BF279", blue: "#0096AD", cream: "#F2F2E7",
+      dark: "#e8f5e9", text: "#f0fdf4", muted: "#9CA3AF",
+      bg: "#061a0e", card: "#0a2015", border: "#1a3a25",
     };
 
+
+    // ── NAV ITEM ─────────────────────────────────────────────────────────────
+    function NavItem({ icon, label, active, onClick, badge, teal, muted }) {
+      return (
+        <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 16px", borderRadius: "8px", border: "none", cursor: "pointer", width: "100%", textAlign: "left", background: active ? `${teal || "#00C2AD"}15` : "transparent", color: active ? (teal || "#00C2AD") : (muted || "#6B7280"), fontWeight: active ? "700" : "500", fontSize: "14px", fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.15s", position: "relative" }}>
+          <span style={{ fontSize: "16px" }}>{icon}</span>
+          <span>{label}</span>
+          {badge > 0 && <span style={{ marginLeft: "auto", background: "#EF4444", color: "#fff", borderRadius: "10px", fontSize: "11px", fontWeight: "700", padding: "1px 7px" }}>{badge}</span>}
+        </button>
+      );
+    }
+
+    // ── MAIN APP ─────────────────────────────────────────────────────────────
     function App() {
       const [session, setSession] = useState(null);
       const [profile, setProfile] = useState(null);
+      const [company, setCompany] = useState(null);
       const [loading, setLoading] = useState(true);
       const [view, setView] = useState("dashboard");
       const [authMode, setAuthMode] = useState("login");
@@ -98,22 +92,60 @@
       const [authError, setAuthError] = useState("");
       const [authLoading, setAuthLoading] = useState(false);
 
+      // Data
       const [records, setRecords] = useState([]);
       const [profiles, setProfiles] = useState([]);
       const [history, setHistory] = useState([]);
-
-      const [form, setForm] = useState({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "" });
-      const [formMsg, setFormMsg] = useState("");
-      const [closingMonth, setClosingMonth] = useState(false);
-      const [editRecord, setEditRecord] = useState(null);
-      const [showRoulette, setShowRoulette] = useState(false);
+      const [catalog, setCatalog] = useState([]);
       const [prizes, setPrizes] = useState([]);
-      const [editingPrizes, setEditingPrizes] = useState(false);
-      const [newPrize, setNewPrize] = useState("");
+      const [departments, setDepartments] = useState([]);
+      const [notifications, setNotifications] = useState([]);
+
+      // UI state
+      const [viewingMonthIndex, setViewingMonthIndex] = useState(0);
+      const [selectedDept, setSelectedDept] = useState("all");
+      const [form, setForm] = useState({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "", deptId: "" });
+      const [formMsg, setFormMsg] = useState("");
+      const [editRecord, setEditRecord] = useState(null);
+      const [closingMonth, setClosingMonth] = useState(false);
+      const [showNotifs, setShowNotifs] = useState(false);
+
+      // Roulette
+      const [showRoulette, setShowRoulette] = useState(false);
       const [spinning, setSpinning] = useState(false);
       const [spinDeg, setSpinDeg] = useState(0);
       const [wonPrize, setWonPrize] = useState(null);
       const [currentDeg, setCurrentDeg] = useState(0);
+
+      // Admin forms
+      const [newCatalogItem, setNewCatalogItem] = useState({ label: "", pts: "", icon: "⭐" });
+      const [newPrize, setNewPrize] = useState("");
+      const [newDept, setNewDept] = useState("");
+      const [editDept, setEditDept] = useState(null);
+      const [companyForm, setCompanyForm] = useState({ name: "", logo: "", color1: "#00C2AD", color2: "#00DD99", color3: "#FFCF2B" });
+      const [companyMsg, setCompanyMsg] = useState("");
+      const logoInputRef = useRef(null);
+      const [editCatalogItem, setEditCatalogItem] = useState(null);
+      const [showPickerAdd, setShowPickerAdd] = useState(false);
+      const [showPickerEdit, setShowPickerEdit] = useState(false);
+      const [darkMode, setDarkMode] = useState(() => localStorage.getItem("meriti_dark") === "true");
+      const [challenge, setChallenge] = useState(null);
+      const [challengeForm, setChallengeForm] = useState({ title: "", description: "", targetPts: "", prize: "", deadline: "" });
+      const [challengeMsg, setChallengeMsg] = useState("");
+      const [showChallengeForm, setShowChallengeForm] = useState(false);
+      const [likes, setLikes] = useState({});
+      const [myLikes, setMyLikes] = useState([]);
+      const [onboardingStep, setOnboardingStep] = useState(0);
+      const [showOnboarding, setShowOnboarding] = useState(false);
+      const [inviteEmail, setInviteEmail] = useState("");
+      const [inviteMsg, setInviteMsg] = useState("");
+      const [invitations, setInvitations] = useState([]);
+      const [validationComment, setValidationComment] = useState({});
+
+      useEffect(() => {
+        document.body.classList.toggle("dark", darkMode);
+        localStorage.setItem("meriti_dark", darkMode);
+      }, [darkMode]);
 
       useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -121,605 +153,1576 @@
           if (session) loadProfile(session.user.id);
           else setLoading(false);
         });
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-          setSession(session);
-          if (session) loadProfile(session.user.id);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+          setSession(s);
+          if (s) loadProfile(s.user.id);
           else { setProfile(null); setLoading(false); }
         });
         return () => subscription.unsubscribe();
       }, []);
 
       useEffect(() => {
-        if (profile) { loadRecords(); loadProfiles(); loadHistory(); loadPrizes(); }
+        if (profile) {
+          loadRecords(); loadProfiles(); loadHistory(); loadCatalog();
+          loadPrizes(); loadNotifications(); loadDepartments(); loadCompany(); loadInvitations(); checkOnboarding(); loadChallenge(); loadLikes();
+        }
       }, [profile]);
 
+      // ── DATA LOADERS ──────────────────────────────────────────────────────
       async function loadProfile(uid) {
         const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-        setProfile(data);
-        setLoading(false);
+        setProfile(data); setLoading(false);
       }
       async function loadRecords() {
-        const { data } = await supabase.from("records").select("*").order("created_at", { ascending: false });
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("records").select("*").eq("company_id", profile.company_id).order("created_at", { ascending: false });
         setRecords(data || []);
       }
       async function loadProfiles() {
-        const { data } = await supabase.from("profiles").select("*").order("name");
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("profiles").select("*").eq("company_id", profile.company_id).order("name");
         setProfiles(data || []);
       }
       async function loadHistory() {
-        const { data } = await supabase.from("month_history").select("*").order("closed_at", { ascending: false });
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("month_history").select("*").eq("company_id", profile.company_id).order("closed_at", { ascending: false });
         setHistory(data || []);
       }
+      async function loadCatalog() {
+        const { data } = await supabase.from("catalog_items").select("*").order("created_at");
+        setCatalog(data || []);
+      }
       async function loadPrizes() {
-        const { data } = await supabase.from("prizes").select("*").order("created_at");
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("prizes").select("*").eq("company_id", profile.company_id).order("created_at");
         setPrizes(data || []);
       }
-      async function handleAddPrize() {
-        if (!newPrize.trim()) return;
-        await supabase.from("prizes").insert({ label: newPrize.trim() });
-        setNewPrize("");
-        await loadPrizes();
+      async function loadDepartments() {
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("departments").select("*").eq("company_id", profile.company_id).order("name");
+        setDepartments(data || []);
       }
-      async function handleDeletePrize(id) {
-        await supabase.from("prizes").delete().eq("id", id);
-        await loadPrizes();
+      async function loadCompany() {
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("company_settings").select("*").eq("id", profile.company_id).single();
+        if (data) {
+          setCompany(data);
+          setCompanyForm({
+            name: data.name || "",
+            logo: data.logo || "",
+            color1: data.color1 || "#00C2AD",
+            color2: data.color2 || "#00DD99",
+            color3: data.color3 || "#FFCF2B",
+          });
+        }
       }
-      function handleSpin() {
-        if (spinning || prizes.length === 0) return;
-        setWonPrize(null);
-        setSpinning(true);
-        const extraSpins = 5 + Math.floor(Math.random() * 5);
-        const randomSlice = Math.floor(Math.random() * prizes.length);
-        const sliceDeg = 360 / prizes.length;
-        const targetDeg = currentDeg + extraSpins * 360 + (360 - randomSlice * sliceDeg - sliceDeg / 2);
-        setSpinDeg(targetDeg);
-        setCurrentDeg(targetDeg % 360);
-        setTimeout(() => {
-          setSpinning(false);
-          setWonPrize(prizes[randomSlice]);
-        }, 4500);
+      async function loadNotifications() {
+        if (!session) return;
+        const { data } = await supabase.from("notifications").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(20);
+        setNotifications(data || []);
+      }
+      async function loadInvitations() {
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("invitations").select("*").eq("company_id", profile.company_id).order("created_at", { ascending: false });
+        setInvitations(data || []);
+      }
+      async function checkOnboarding() {
+        if (!profile?.company_id) return;
+        const { data: depts } = await supabase.from("departments").select("id").eq("company_id", profile.company_id).limit(1);
+        const { data: profs } = await supabase.from("profiles").select("id").eq("role", "user").eq("company_id", profile.company_id).limit(1);
+        const companyHasName = company?.name && company.name !== "Mi Empresa";
+        const done = companyHasName && depts && depts.length > 0 && profs && profs.length > 0;
+        if (!done) setShowOnboarding(true);
+      }
+      async function loadChallenge() {
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("challenges").select("*").eq("active", true).eq("company_id", profile.company_id).limit(1).single();
+        if (data) setChallenge(data);
+        else setChallenge(null);
+      }
+      async function loadLikes() {
+        if (!profile?.company_id) return;
+        const { data: allLikes } = await supabase.from("likes").select("*").eq("company_id", profile.company_id);
+        const likeCounts = {};
+        (allLikes || []).forEach(l => { likeCounts[l.to_user_id] = (likeCounts[l.to_user_id] || 0) + 1; });
+        setLikes(likeCounts);
+        const today = new Date().toISOString().split("T")[0];
+        const myL = (allLikes || []).filter(l => l.from_user_id === session.user.id && l.date === today).map(l => l.to_user_id);
+        setMyLikes(myL);
+      }
+      async function handleLike(toUserId) {
+        if (myLikes.includes(toUserId) || toUserId === session.user.id) return;
+        const today = new Date().toISOString().split("T")[0];
+        await supabase.from("likes").insert({ from_user_id: session.user.id, to_user_id: toUserId, date: today, company_id: companyId });
+        await supabase.from("notifications").insert({ user_id: toUserId, message: `👏 ${profile.name} te ha dado un aplauso`, read: false, company_id: companyId });
+        await loadLikes();
+      }
+      async function handleSaveChallenge() {
+        if (!challengeForm.title.trim() || !challengeForm.targetPts || !challengeForm.deadline) { setChallengeMsg("⚠️ Completa título, objetivo y fecha límite."); return; }
+        await supabase.from("challenges").update({ active: false }).eq("active", true).eq("company_id", companyId);
+        await supabase.from("challenges").insert({ title: challengeForm.title, description: challengeForm.description, target_pts: parseInt(challengeForm.targetPts), prize: challengeForm.prize, deadline: challengeForm.deadline, active: true, month: monthKey, company_id: companyId });
+        setChallengeForm({ title: "", description: "", targetPts: "", prize: "", deadline: "" });
+        setShowChallengeForm(false);
+        await loadChallenge();
+      }
+      async function handleCloseChallenge() {
+        if (!challenge) return;
+        await supabase.from("challenges").update({ active: false }).eq("id", challenge.id);
+        setChallenge(null);
+      }
+      function exportToExcel() {
+        const data = records.map(r => {
+          const cat = catalog.find(c => c.id === r.catalog_id);
+          const dept = departments.find(d => d.id === r.dept_id);
+          return {
+            "Nombre": r.user_name,
+            "Departamento": dept?.name || "—",
+            "Logro": cat?.label || "—",
+            "Descripción": r.description,
+            "Puntos": r.pts,
+            "Fecha": r.date,
+            "Mes": r.month,
+            "Validado": r.validated ? "Sí" : "No",
+            "Comentario manager": r.manager_comment || "—",
+          };
+        });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Logros");
+        // History sheet
+        const histData = history.map(h => ({
+          "Mes": h.label,
+          "Ganador": h.winner,
+          ...Object.fromEntries((h.scores || []).map(s => [s.name, s.pts]))
+        }));
+        if (histData.length > 0) {
+          const ws2 = XLSX.utils.json_to_sheet(histData);
+          XLSX.utils.book_append_sheet(wb, ws2, "Histórico");
+        }
+        XLSX.writeFile(wb, `Meriti_${MONTH_NAMES[now.getMonth()]}_${now.getFullYear()}.xlsx`);
       }
 
+      async function handleSendInvite() {
+        if (!inviteEmail.trim()) return;
+        const existing = invitations.find(i => i.email === inviteEmail.trim());
+        if (existing) { setInviteMsg("⚠️ Ya existe una invitación para ese email."); setTimeout(() => setInviteMsg(""), 3000); return; }
+        await supabase.from("invitations").insert({ email: inviteEmail.trim(), status: "pending", company_id: companyId });
+        setInviteEmail(""); await loadInvitations();
+        setInviteMsg("✅ Invitación registrada. Comparte el enlace de registro con tu equipo.");
+        setTimeout(() => setInviteMsg(""), 4000);
+      }
+      async function handleDeleteInvitation(id) {
+        await supabase.from("invitations").delete().eq("id", id);
+        await loadInvitations();
+      }
+      async function handleEditCatalogItem() {
+        if (!editCatalogItem?.label.trim() || !editCatalogItem?.pts) return;
+        const { error } = await supabase.from("catalog_items").update({ label: editCatalogItem.label.trim(), pts: parseInt(editCatalogItem.pts), icon: editCatalogItem.icon }).eq("id", editCatalogItem.id);
+        if (error) { alert("Error al guardar: " + error.message); return; }
+        setEditCatalogItem(null);
+        setShowPickerEdit(false);
+        await loadCatalog();
+      }
+      async function handleValidateWithComment(id) {
+        const comment = validationComment[id] || "";
+        await supabase.from("records").update({ validated: true, manager_comment: comment }).eq("id", id);
+        const rec = records.find(r => r.id === id);
+        if (rec) {
+          const msg = comment ? `✅ Tu logro "${rec.description}" fue validado — +${rec.pts} pts. Comentario: ${comment}` : `✅ Tu logro "${rec.description}" ha sido validado — +${rec.pts} pts`;
+          await supabase.from("notifications").insert({ user_id: rec.user_id, message: msg, read: false, company_id: companyId });
+        }
+        setValidationComment(vc => { const n = {...vc}; delete n[id]; return n; });
+        await loadRecords();
+      }
+      async function markAllRead() {
+        await supabase.from("notifications").update({ read: true }).eq("user_id", session.user.id).eq("read", false);
+        await loadNotifications();
+      }
+
+      // ── AUTH ──────────────────────────────────────────────────────────────
       async function handleLogin() {
         setAuthLoading(true); setAuthError("");
         const { error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password });
-        if (error) setAuthError(error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message);
+        if (error) setAuthError("Email o contraseña incorrectos.");
         setAuthLoading(false);
       }
       async function handleRegister() {
         if (!authForm.name.trim()) { setAuthError("Introduce tu nombre."); return; }
-        if (authForm.password.length < 6) { setAuthError("La contraseña debe tener al menos 6 caracteres."); return; }
+        if (authForm.password.length < 6) { setAuthError("Mínimo 6 caracteres."); return; }
         setAuthLoading(true); setAuthError("");
-        const { error } = await supabase.auth.signUp({
-          email: authForm.email, password: authForm.password,
-          options: { data: { name: authForm.name } },
-        });
+        // Check for invite token in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get("invite");
+        const metadata = { name: authForm.name };
+        if (inviteToken) metadata.invite_token = inviteToken;
+        const { error } = await supabase.auth.signUp({ email: authForm.email, password: authForm.password, options: { data: metadata } });
         if (error) setAuthError(error.message);
-        else setAuthError("✅ ¡Cuenta creada! Revisa tu email para confirmarla, luego inicia sesión.");
+        else setAuthError("✅ ¡Cuenta creada! Inicia sesión.");
         setAuthLoading(false);
       }
-      async function handleLogout() {
-        await supabase.auth.signOut(); setView("dashboard");
+      async function handleLogout() { await supabase.auth.signOut(); setView("dashboard"); }
+
+      // ── COMPANY ───────────────────────────────────────────────────────────
+      async function handleSaveCompany() {
+        if (!profile?.company_id) return;
+        const payload = { id: profile.company_id, name: companyForm.name, logo: companyForm.logo, color1: companyForm.color1, color2: companyForm.color2, color3: companyForm.color3 };
+        const { error } = await supabase.from("company_settings").upsert(payload, { onConflict: "id" });
+        if (error) { setCompanyMsg("❌ Error al guardar."); return; }
+        await loadCompany();
+        setCompanyMsg("✅ Cambios guardados.");
+        setTimeout(() => setCompanyMsg(""), 3000);
       }
+      function handleLogoUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => setCompanyForm(f => ({ ...f, logo: ev.target.result }));
+        reader.readAsDataURL(file);
+      }
+
+      // ── DEPARTMENTS ───────────────────────────────────────────────────────
+      async function handleAddDept() {
+        if (!newDept.trim()) return;
+        await supabase.from("departments").insert({ name: newDept.trim(), company_id: companyId });
+        setNewDept(""); await loadDepartments();
+      }
+      async function handleSaveEditDept() {
+        if (!editDept?.name.trim()) return;
+        await supabase.from("departments").update({ name: editDept.name }).eq("id", editDept.id);
+        setEditDept(null); await loadDepartments();
+      }
+      async function handleDeleteDept(id) {
+        await supabase.from("departments").delete().eq("id", id);
+        await loadDepartments();
+      }
+
+      // ── CATALOG ───────────────────────────────────────────────────────────
+      async function handleAddCatalogItem() {
+        if (!newCatalogItem.label.trim() || !newCatalogItem.pts) return;
+        await supabase.from("catalog_items").insert({ label: newCatalogItem.label.trim(), pts: parseInt(newCatalogItem.pts), icon: newCatalogItem.icon || "⭐", company_id: companyId });
+        setNewCatalogItem({ label: "", pts: "", icon: "⭐" }); await loadCatalog();
+      }
+      async function handleDeleteCatalogItem(id) {
+        await supabase.from("catalog_items").delete().eq("id", id); await loadCatalog();
+      }
+
+      // ── PRIZES ────────────────────────────────────────────────────────────
+      async function handleAddPrize() {
+        if (!newPrize.trim()) return;
+        await supabase.from("prizes").insert({ label: newPrize.trim(), company_id: companyId });
+        setNewPrize(""); await loadPrizes();
+      }
+      async function handleDeletePrize(id) {
+        await supabase.from("prizes").delete().eq("id", id); await loadPrizes();
+      }
+
+      // ── RECORDS ───────────────────────────────────────────────────────────
       async function handleSubmit() {
         if (!form.catalogId || !form.date || !form.desc.trim()) { setFormMsg("⚠️ Completa todos los campos."); return; }
-        const cat = CATALOG.find(c => c.id === parseInt(form.catalogId));
-        const { error } = await supabase.from("records").insert({
-          user_id: session.user.id, user_name: profile.name,
-          catalog_id: cat.id, pts: cat.pts,
-          description: form.desc, date: form.date, month: monthKey, validated: false,
-        });
+        const cat = catalog.find(c => c.id === form.catalogId);
+        if (!cat) { setFormMsg("⚠️ Selecciona un item válido."); return; }
+        const { error } = await supabase.from("records").insert({ user_id: session.user.id, user_name: profile.name, catalog_id: cat.id, pts: cat.pts, description: form.desc, date: form.date, month: monthKey, validated: false, dept_id: form.deptId || null, company_id: companyId });
         if (error) { setFormMsg("❌ Error: " + error.message); return; }
         await loadRecords();
-        setForm({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "" });
-        setFormMsg("✅ Logro registrado. Pendiente de validación por Amanda.");
+        setForm({ catalogId: "", date: new Date().toISOString().split("T")[0], desc: "", deptId: "" });
+        setFormMsg("✅ Logro enviado. Amanda lo validará pronto.");
         setTimeout(() => setFormMsg(""), 5000);
       }
-      async function handleValidate(id) {
-        await supabase.from("records").update({ validated: true }).eq("id", id);
-        await loadRecords();
-      }
-      async function handleDelete(id) {
-        await supabase.from("records").delete().eq("id", id);
-        await loadRecords();
-      }
+      async function handleDelete(id) { await supabase.from("records").delete().eq("id", id); await loadRecords(); }
       async function handleSaveEdit() {
-        const cat = CATALOG.find(c => c.id === editRecord.catalog_id);
-        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
+        const cat = catalog.find(c => c.id === editRecord.catalog_id);
+        await supabase.from("records").update({ catalog_id: editRecord.catalog_id, pts: cat ? cat.pts : editRecord.pts, description: editRecord.description, date: editRecord.date }).eq("id", editRecord.id);
         await loadRecords(); setEditRecord(null);
       }
-      async function handleUpdateRole(uid, role) {
-        await supabase.from("profiles").update({ role }).eq("id", uid);
-        await loadProfiles();
-      }
+      async function handleUpdateRole(uid, role) { await supabase.from("profiles").update({ role }).eq("id", uid); await loadProfiles(); }
+      async function handleUpdateDeptForUser(uid, deptId) { await supabase.from("profiles").update({ dept_id: deptId }).eq("id", uid); await loadProfiles(); }
       async function handleCloseMonth() {
-        const monthRecords = records.filter(r => r.month === monthKey && r.validated);
-        const scores = profiles.filter(p => p.role === "user").map(p => ({
-          name: p.name,
-          pts: monthRecords.filter(r => r.user_id === p.id).reduce((a, b) => a + b.pts, 0),
-        })).sort((a, b) => b.pts - a.pts);
-        const winnerName = scores[0]?.name || "—";
-        await supabase.from("month_history").insert({
-          month: monthKey, label: `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`,
-          winner: winnerName, scores,
-        });
+        const mRecs = records.filter(r => r.month === monthKey && r.validated);
+        const scores = profiles.filter(p => p.role === "user").map(p => ({ name: p.name, pts: mRecs.filter(r => r.user_id === p.id).reduce((a, b) => a + b.pts, 0) })).sort((a, b) => b.pts - a.pts);
+        await supabase.from("month_history").insert({ month: monthKey, label: `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`, winner: scores[0]?.name || "—", scores, company_id: companyId });
         await loadHistory(); setClosingMonth(false); setView("dashboard");
       }
 
+      // ── ROULETTE ──────────────────────────────────────────────────────────
+      function handleSpin() {
+        if (spinning || prizes.length === 0) return;
+        setWonPrize(null); setSpinning(true);
+        const randomSlice = Math.floor(Math.random() * prizes.length);
+        const sliceDeg = 360 / prizes.length;
+        const targetDeg = currentDeg + (5 + Math.floor(Math.random() * 5)) * 360 + (360 - randomSlice * sliceDeg - sliceDeg / 2);
+        setSpinDeg(targetDeg); setCurrentDeg(targetDeg % 360);
+        setTimeout(() => { setSpinning(false); setWonPrize(prizes[randomSlice]); }, 4500);
+      }
+
+      // ── COMPUTED ──────────────────────────────────────────────────────────
+      const companyId = profile?.company_id;
+      const brandColor1 = company?.color1 || "#00C2AD";
+      const brandColor2 = company?.color2 || "#00DD99";
+      const brandColor3 = company?.color3 || "#FFCF2B";
+      const BRAND_COLORS = [brandColor1, brandColor2, brandColor3, "#6BF279", "#0096AD", "#99F999"];
+
+      const C = darkMode ? {
+        ...DARK,
+        teal: brandColor1,
+        green: brandColor2,
+        yellow: brandColor3,
+      } : {
+        ...LIGHT,
+        teal: brandColor1,
+        green: brandColor2,
+        yellow: brandColor3,
+      };
+      const S = {
+        app: { minHeight: "100vh", background: C.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "background 0.3s" },
+        sidebar: { width: "240px", minHeight: "100vh", background: C.card, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, zIndex: 50 },
+        mainContent: { marginLeft: "240px", minHeight: "100vh", display: "flex", flexDirection: "column" },
+        topbar: { height: "64px", background: C.card, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", position: "sticky", top: 0, zIndex: 40 },
+        page: { padding: "32px", maxWidth: "1100px", animation: "fadeIn 0.3s ease" },
+        card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "24px", marginBottom: "20px", transition: "background 0.3s, border-color 0.3s" },
+        cardSm: { background: C.card, border: `1px solid ${C.border}`, borderRadius: "10px", padding: "16px" },
+        statCard: (color) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "20px 24px", borderLeft: `4px solid ${color}` }),
+        pageTitle: { fontSize: "24px", fontWeight: "800", color: C.text, marginBottom: "4px" },
+        pageSubtitle: { fontSize: "14px", color: C.muted, marginBottom: "28px" },
+        sectionLabel: { fontSize: "11px", fontWeight: "700", letterSpacing: "1.5px", color: C.muted, textTransform: "uppercase", marginBottom: "12px" },
+        cardTitle: { fontSize: "15px", fontWeight: "700", color: C.text, marginBottom: "4px" },
+        label: { fontSize: "13px", fontWeight: "600", color: C.text, marginBottom: "6px", display: "block" },
+        input: { width: "100%", padding: "10px 14px", borderRadius: "8px", border: `1.5px solid ${C.border}`, color: C.text, fontSize: "14px", outline: "none", background: C.card, fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "border-color 0.2s" },
+        select: { width: "100%", padding: "10px 14px", borderRadius: "8px", border: `1.5px solid ${C.border}`, color: C.text, fontSize: "14px", outline: "none", background: C.card, fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        textarea: { width: "100%", padding: "10px 14px", borderRadius: "8px", border: `1.5px solid ${C.border}`, color: C.text, fontSize: "14px", outline: "none", background: C.card, fontFamily: "'Plus Jakarta Sans', sans-serif", resize: "vertical", minHeight: "80px" },
+        btnPrimary: { padding: "10px 20px", borderRadius: "8px", border: "none", cursor: "pointer", background: C.teal, color: "#fff", fontWeight: "700", fontSize: "14px", fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        btnSecondary: { padding: "10px 20px", borderRadius: "8px", border: `1.5px solid ${C.border}`, cursor: "pointer", background: C.card, color: C.text, fontWeight: "600", fontSize: "14px", fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        btnDanger: { padding: "8px 14px", borderRadius: "7px", border: "none", cursor: "pointer", background: "#FEE2E2", color: "#DC2626", fontWeight: "600", fontSize: "13px", fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        btnGhost: (color) => ({ padding: "7px 13px", borderRadius: "7px", border: "none", cursor: "pointer", background: `${color}15`, color: color, fontWeight: "600", fontSize: "13px", fontFamily: "'Plus Jakarta Sans', sans-serif" }),
+        btnYellow: { padding: "10px 20px", borderRadius: "8px", border: "none", cursor: "pointer", background: C.yellow, color: C.dark, fontWeight: "700", fontSize: "14px", fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        th: { textAlign: "left", padding: "10px 16px", fontSize: "12px", fontWeight: "700", color: C.muted, letterSpacing: "0.5px", borderBottom: `1px solid ${C.border}`, background: darkMode ? "#0a2015" : "#F9FAFB" },
+        td: { padding: "12px 16px", fontSize: "13px", color: C.text, borderBottom: `1px solid ${C.border}` },
+        badge: (color, bg) => ({ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", color, background: bg }),
+        roleBadge: (r) => ({ display: "inline-block", padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", background: r === "admin" ? `${C.yellow}20` : `${C.teal}15`, color: r === "admin" ? C.yellow : C.teal }),
+        overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(2px)" },
+        modal: { background: C.card, borderRadius: "16px", padding: "32px", width: "90%", maxWidth: "480px", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease" },
+        loginWrap: { minHeight: "100vh", background: `linear-gradient(135deg, #061a0e 0%, #0a2015 50%, #063318 100%)`, display: "flex", alignItems: "center", justifyContent: "center" },
+        loginCard: { background: C.card, borderRadius: "20px", padding: "48px", width: "100%", maxWidth: "420px", boxShadow: "0 24px 80px rgba(0,0,0,0.3)" },
+        spinner: { display: "inline-block", width: "20px", height: "20px", border: `2px solid ${C.border}`, borderTop: `2px solid ${C.teal}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" },
+      };
+
       const teamProfiles = profiles.filter(p => p.role === "user");
       const allNames = teamProfiles.map(p => p.name);
-      const currentPoints = teamProfiles.map(p => ({
-        ...p,
-        pts: records.filter(r => r.user_id === p.id && r.month === monthKey && r.validated).reduce((a, b) => a + b.pts, 0),
-      })).sort((a, b) => b.pts - a.pts);
+      const getColor = (name) => BRAND_COLORS[([...allNames].sort().indexOf(name)) % BRAND_COLORS.length] || C.teal;
+
+      const filteredProfiles = selectedDept === "all" ? teamProfiles : teamProfiles.filter(p => p.dept_id === selectedDept);
+      const currentPoints = filteredProfiles.map(p => ({ ...p, pts: records.filter(r => r.user_id === p.id && r.month === monthKey && r.validated).reduce((a, b) => a + b.pts, 0) })).sort((a, b) => b.pts - a.pts);
       const maxPts = Math.max(...currentPoints.map(u => u.pts), 1);
       const winner = currentPoints[0];
-      const visibleRecords = profile?.role === "admin" ? records : records.filter(r => r.user_id === session?.user?.id);
 
-      // LOADING
+      const allMonths = [
+        { key: monthKey, label: `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`, isCurrent: true },
+        ...history.map(h => ({ key: h.month, label: h.label, isCurrent: false, histData: h }))
+      ];
+      const cmd = allMonths[viewingMonthIndex] || allMonths[0];
+      const isCurrent = cmd.isCurrent;
+      let dPoints = [], dRecords = [];
+      if (isCurrent) {
+        dPoints = currentPoints;
+        dRecords = records.filter(r => r.month === monthKey && (selectedDept === "all" || r.dept_id === selectedDept)).slice(0, 10);
+      } else {
+        dPoints = (cmd.histData?.scores || []).sort((a, b) => b.pts - a.pts);
+        dRecords = records.filter(r => r.month === cmd.histData?.month);
+      }
+      const dMax = Math.max(...dPoints.map(u => u.pts), 1);
+
+      const visibleRecords = profile?.role === "admin" ? records : records.filter(r => r.user_id === session?.user?.id);
+      const getTotalPts = (userId) => records.filter(r => r.user_id === userId && r.validated).reduce((a, b) => a + b.pts, 0);
+      const challengeCurrentPts = challenge ? records.filter(r => r.month === challenge.month && r.validated).reduce((a, b) => a + b.pts, 0) : 0;
+      const challengeProgress = challenge ? Math.min(Math.round((challengeCurrentPts / challenge.target_pts) * 100), 100) : 0;
+      const unreadCount = notifications.filter(n => !n.read).length;
+      const pendingCount = records.filter(r => !r.validated).length;
+
+      const companyName = company?.name || "Meriti";
+      const companyLogo = company?.logo || null;
+
+      // ── LOADING / AUTH ────────────────────────────────────────────────────
       if (loading) return (
-        <div style={S.loginWrap}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏆</div>
-            <div style={S.spinner} />
-            <div style={{ marginTop: "12px", color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>Conectando...</div>
-          </div>
-        </div>
+        <div style={S.loginWrap}><div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "48px", marginBottom: "20px" }}>🏆</div>
+          <div style={S.spinner} />
+          <div style={{ marginTop: "16px", color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>Cargando...</div>
+        </div></div>
       );
 
-      // AUTH
       if (!session || !profile) return (
         <div style={S.loginWrap}>
           <div style={S.loginCard}>
-            <div style={{ textAlign: "center", marginBottom: "32px" }}>
-              <div style={{ fontSize: "48px", marginBottom: "8px" }}>🏆</div>
-              <div style={S.loginTitle}>Crack del Mes</div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>Educación · Sistema de Puntos</div>
+            <div style={{ textAlign: "center", marginBottom: "36px" }}>
+              <div style={{ fontSize: "44px", marginBottom: "12px" }}>🏆</div>
+              <div style={{ fontSize: "28px", fontWeight: "900", color: C.dark, marginBottom: "6px" }}>Meriti</div>
+              <div style={{ fontSize: "14px", color: C.muted }}>Gamificación para equipos de trabajo</div>
             </div>
-            <div style={{ display: "flex", marginBottom: "24px", background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "4px" }}>
-              {["login", "register"].map(m => (
-                <button key={m} style={{ flex: 1, padding: "9px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "700", fontSize: "13px", background: authMode === m ? "rgba(255,255,255,0.1)" : "transparent", color: authMode === m ? "#fff" : "rgba(255,255,255,0.4)", transition: "all 0.2s" }} onClick={() => { setAuthMode(m); setAuthError(""); }}>
+            <div style={{ display: "flex", marginBottom: "24px", background: "#F3F4F6", borderRadius: "10px", padding: "4px" }}>
+              {["login","register"].map(m => (
+                <button key={m} style={{ flex: 1, padding: "9px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "700", fontSize: "13px", fontFamily: "'Plus Jakarta Sans', sans-serif", background: authMode === m ? "#fff" : "transparent", color: authMode === m ? C.text : C.muted, boxShadow: authMode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }} onClick={() => { setAuthMode(m); setAuthError(""); }}>
                   {m === "login" ? "Iniciar sesión" : "Registrarse"}
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {authMode === "register" && (
-                <div>
-                  <label style={S.label}>Nombre</label>
-                  <input style={S.input} placeholder="Tu nombre (ej: Inma)" value={authForm.name} onChange={e => setAuthForm(f => ({ ...f, name: e.target.value }))} />
-                </div>
-              )}
-              <div>
-                <label style={S.label}>Email</label>
-                <input style={S.input} type="email" placeholder="tu@edu.com" value={authForm.email} onChange={e => setAuthForm(f => ({ ...f, email: e.target.value }))} onKeyDown={e => e.key === "Enter" && (authMode === "login" ? handleLogin() : handleRegister())} />
-              </div>
-              <div>
-                <label style={S.label}>Contraseña</label>
-                <input style={S.input} type="password" placeholder="Mínimo 6 caracteres" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} onKeyDown={e => e.key === "Enter" && (authMode === "login" ? handleLogin() : handleRegister())} />
-              </div>
-              {authError && <div style={authError.startsWith("✅") ? S.success : S.error}>{authError}</div>}
-              <button style={{ ...S.btn("#4ECDC4"), width: "100%", marginTop: "4px", opacity: authLoading ? 0.7 : 1 }} onClick={authMode === "login" ? handleLogin : handleRegister} disabled={authLoading}>
-                {authLoading ? "Cargando..." : authMode === "login" ? "Entrar →" : "Crear cuenta →"}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {authMode === "register" && <div><label style={S.label}>Nombre</label><input style={S.input} placeholder="Tu nombre completo" value={authForm.name} onChange={e => setAuthForm(f => ({ ...f, name: e.target.value }))} /></div>}
+              <div><label style={S.label}>Email</label><input style={S.input} type="email" placeholder="tu@empresa.com" value={authForm.email} onChange={e => setAuthForm(f => ({ ...f, email: e.target.value }))} /></div>
+              <div><label style={S.label}>Contraseña</label><input style={S.input} type="password" placeholder="Mínimo 6 caracteres" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} onKeyDown={e => e.key === "Enter" && (authMode === "login" ? handleLogin() : handleRegister())} /></div>
+              {authError && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: authError.startsWith("✅") ? "#D1FAE5" : "#FEE2E2", color: authError.startsWith("✅") ? "#065F46" : "#DC2626" }}>{authError}</div>}
+              <button style={{ ...S.btnPrimary, width: "100%", padding: "12px", fontSize: "15px", opacity: authLoading ? 0.7 : 1 }} onClick={authMode === "login" ? handleLogin : handleRegister} disabled={authLoading}>
+                {authLoading ? "Cargando..." : authMode === "login" ? "Entrar" : "Crear cuenta"}
               </button>
             </div>
           </div>
         </div>
       );
 
-      // MAIN APP
+      // ── MAIN LAYOUT ───────────────────────────────────────────────────────
       return (
         <div style={S.app}>
-          <nav style={S.nav}>
-            <div style={S.logo}>🏆 Crack del Mes</div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {["dashboard", "registrar", "historial"].map(v => (
-                (v !== "registrar" || profile.role !== "admin") &&
-                <button key={v} style={S.navBtn(view === v)} onClick={() => setView(v)}>
-                  {v === "dashboard" ? "📊 Ranking" : v === "registrar" ? "➕ Registrar" : "📋 Historial"}
-                </button>
-              ))}
-              {profile.role === "admin" && <button style={S.navBtn(view === "admin")} onClick={() => setView("admin")}>⚙️ Admin</button>}
-              {(profile.role === "admin" || (winner && winner.id === profile.id)) && (
-                <button style={{ ...S.navBtn(false), background: "linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,230,109,0.2))", color: "#FFE66D", border: "1px solid rgba(255,230,109,0.3)" }} onClick={() => setShowRoulette(true)}>
-                  🎡 Ruleta
-                </button>
-              )}
-            </div>
-            <div style={S.userBadge}>
-              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `linear-gradient(135deg, ${getUserColor(profile.name, allNames).main}, #fff3)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px", color: "#000" }}>
-                {profile.name[0]}
-              </div>
-              <span>{profile.name}</span>
-              {profile.role === "admin" && <span style={{ fontSize: "10px", color: "#FFE66D", background: "rgba(255,230,109,0.15)", padding: "2px 7px", borderRadius: "10px" }}>ADMIN</span>}
-              <button onClick={handleLogout} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: "18px" }}>×</button>
-            </div>
-          </nav>
-
-          <main style={S.main}>
-
-            {/* DASHBOARD */}
-            {view === "dashboard" && (
-              <>
-                <div style={{ marginBottom: "28px" }}>
-                  <div style={{ fontSize: "28px", fontWeight: "900" }}>{MONTH_NAMES[now.getMonth()]} {now.getFullYear()}</div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>{records.filter(r => r.month === monthKey && r.validated).length} logros validados este mes</div>
+          {/* SIDEBAR */}
+          <aside style={S.sidebar}>
+            <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {companyLogo ? <img src={companyLogo} alt="logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover" }} /> : <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: `linear-gradient(135deg, ${C.teal}, ${C.green})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>🏆</div>}
+                <div>
+                  <div style={{ fontSize: "15px", fontWeight: "800", color: C.text, lineHeight: 1.2 }}>{companyName}</div>
+                  <div style={{ fontSize: "11px", color: C.muted }}>powered by Meriti</div>
                 </div>
+              </div>
+            </div>
 
-                {isLastDay && winner && (
-                  <div style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,165,0,0.06))", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "16px", padding: "20px 24px", display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
-                    <span style={{ fontSize: "36px" }}>🥇</span>
-                    <div>
-                      <div style={{ fontWeight: "800", fontSize: "16px" }}>¡Hoy es el último día del mes!</div>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "13px" }}>El crack es <strong style={{ color: "#FFD700" }}>{winner.name}</strong> con {winner.pts} pts</div>
-                    </div>
-                    {profile.role === "admin" && (
-                      <button style={{ ...S.btn("#FFE66D"), marginLeft: "auto" }} onClick={() => setClosingMonth(true)}>Cerrar mes →</button>
+            <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={S.sectionLabel} className="px-2">Principal</div>
+              <NavItem teal={C.teal} muted={C.muted} icon="📊" label="Dashboard" active={view === "dashboard"} onClick={() => setView("dashboard")} />
+              {profile.role !== "admin" && <NavItem teal={C.teal} muted={C.muted} icon="➕" label="Registrar logro" active={view === "registrar"} onClick={() => setView("registrar")} />}
+              <NavItem teal={C.teal} muted={C.muted} icon="📋" label="Historial" active={view === "historial"} onClick={() => setView("historial")} />
+              {profile.role !== "admin" && <NavItem teal={C.teal} muted={C.muted} icon="👤" label="Mi perfil" active={view === "perfil"} onClick={() => setView("perfil")} />}
+              {(profile.role === "admin" || (winner && winner.id === profile.id)) && (
+                <NavItem teal={C.teal} muted={C.muted} icon="🎡" label="Ruleta" active={view === "ruleta"} onClick={() => setView("ruleta")} />
+              )}
+              {profile.role === "admin" && (
+                <>
+                  <div style={{ ...S.sectionLabel, marginTop: "16px" }}>Administración</div>
+                  <NavItem teal={C.teal} muted={C.muted} icon="✅" label="Validar logros" active={view === "validar"} onClick={() => setView("validar")} badge={pendingCount} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="👥" label="Equipo" active={view === "equipo"} onClick={() => setView("equipo")} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="🏢" label="Departamentos" active={view === "departamentos"} onClick={() => setView("departamentos")} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="📝" label="Catálogo" active={view === "catalogo"} onClick={() => setView("catalogo")} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="⚙️" label="Empresa" active={view === "empresa"} onClick={() => setView("empresa")} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="🎯" label="Reto colectivo" active={view === "reto"} onClick={() => setView("reto")} />
+                  <NavItem teal={C.teal} muted={C.muted} icon="📈" label="Estadísticas" active={view === "stats"} onClick={() => setView("stats")} />
+                </>
+              )}
+            </nav>
+
+            <div style={{ padding: "12px 8px", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "8px", background: darkMode ? "#0d2a18" : "#F9FAFB" }}>
+                <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: `linear-gradient(135deg, ${C.teal}, ${C.green})`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "13px", color: "#fff", flexShrink: 0 }}>{profile.name[0]}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile.name}</div>
+                  <div style={{ fontSize: "11px", color: C.muted }}>{profile.role === "admin" ? "Manager" : "Empleado"}</div>
+                </div>
+                <button onClick={handleLogout} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: "16px", padding: "2px" }}>↩</button>
+              </div>
+            </div>
+          </aside>
+
+          {/* MAIN */}
+          <div style={S.mainContent}>
+            {/* TOPBAR */}
+            <header style={S.topbar}>
+              <div style={{ fontSize: "15px", fontWeight: "700", color: C.text }}>
+                {view === "dashboard" && "Dashboard"}
+                {view === "registrar" && "Registrar logro"}
+                {view === "historial" && "Historial"}
+                {view === "ruleta" && "Ruleta de premios"}
+                {view === "validar" && "Validar logros"}
+                {view === "equipo" && "Gestión del equipo"}
+                {view === "departamentos" && "Departamentos"}
+                {view === "catalogo" && "Catálogo de logros"}
+                {view === "empresa" && "Configuración de empresa"}
+                {view === "perfil" && "Mi perfil"}
+                {view === "reto" && "Reto Colectivo"}
+                {view === "stats" && "Estadísticas"}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                {profile.role !== "admin" && (
+                  <div style={{ position: "relative" }}>
+                    <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) markAllRead(); }} style={{ background: "#F3F4F6", border: "none", cursor: "pointer", borderRadius: "8px", padding: "8px 10px", fontSize: "16px", position: "relative" }}>
+                      🔔
+                      {unreadCount > 0 && <span style={{ position: "absolute", top: "4px", right: "4px", background: "#EF4444", color: "#fff", borderRadius: "50%", width: "14px", height: "14px", fontSize: "9px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
+                    </button>
+                    {showNotifs && (
+                      <div style={{ position: "absolute", right: 0, top: "44px", width: "320px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "12px", zIndex: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
+                        <div style={S.sectionLabel}>Notificaciones</div>
+                        {notifications.length === 0 ? <div style={{ color: C.muted, fontSize: "13px", textAlign: "center", padding: "16px 0" }}>Sin notificaciones</div>
+                          : notifications.map(n => <div key={n.id} style={{ padding: "10px 12px", borderRadius: "8px", marginBottom: "6px", background: n.read ? (darkMode ? "#0d2a18" : "#F9FAFB") : `${C.teal}10`, border: `1px solid ${n.read ? C.border : C.teal}30`, fontSize: "13px", color: n.read ? C.muted : C.text }}>{n.message}</div>)}
+                      </div>
                     )}
                   </div>
                 )}
-
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>🏅 Leaderboard — {MONTH_NAMES[now.getMonth()]}</div>
-                  {currentPoints.length === 0 ? (
-                    <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "center", padding: "32px 0" }}>Aún no hay usuarios activos este mes.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                      {currentPoints.map((u, i) => {
-                        const color = getUserColor(u.name, allNames);
-                        return (
-                          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px 20px", borderRadius: "14px", background: i === 0 ? `linear-gradient(135deg, ${color.glow}, rgba(255,255,255,0.04))` : "rgba(255,255,255,0.03)", border: i === 0 ? `1px solid ${color.main}44` : "1px solid rgba(255,255,255,0.07)" }}>
-                            <div style={{ width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: i === 0 ? "18px" : "14px", background: i === 0 ? "linear-gradient(135deg, #FFD700, #FFA500)" : i === 1 ? "linear-gradient(135deg, #C0C0C0, #888)" : "linear-gradient(135deg, #CD7F32, #8B4513)", color: "#000", flexShrink: 0 }}>
-                              {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
-                            </div>
-                            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: `linear-gradient(135deg, ${color.main}, #fff3)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px", color: "#000", flexShrink: 0 }}>
-                              {u.name[0]}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: "15px", fontWeight: "700", marginBottom: "4px" }}>{u.name}</div>
-                              <div style={{ height: "6px", borderRadius: "3px", background: `linear-gradient(90deg, ${color.main}, ${color.main}66)`, width: `${Math.max((u.pts / maxPts) * 100, 5)}%`, boxShadow: `0 0 10px ${color.glow}`, transition: "width 0.8s ease" }} />
-                            </div>
-                            <div style={{ fontSize: "26px", fontWeight: "900", color: color.main, textShadow: `0 0 20px ${color.glow}`, flexShrink: 0 }}>{u.pts}<span style={{ fontSize: "14px", opacity: 0.6 }}> pts</span></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>📝 Últimos logros del mes</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr>
-                      <th style={S.th}>Usuario</th><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th>
-                    </tr></thead>
-                    <tbody>
-                      {records.filter(r => r.month === monthKey).slice(0, 8).map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
-                        const color = getUserColor(r.user_name, allNames);
-                        return (
-                          <tr key={r.id}>
-                            <td style={{ ...S.td, fontWeight: "700", color: color.main }}>{r.user_name}</td>
-                            <td style={S.td}>{cat?.icon} {cat?.label}</td>
-                            <td style={{ ...S.td, color: "rgba(255,255,255,0.5)" }}>{r.description}</td>
-                            <td style={{ ...S.td, fontWeight: "800", color: color.main }}>+{r.pts}</td>
-                            <td style={S.td}><span style={S.badge(r.validated)}>{r.validated ? "✓ Validado" : "⏳ Pendiente"}</span></td>
-                          </tr>
-                        );
-                      })}
-                      {records.filter(r => r.month === monthKey).length === 0 && <tr><td colSpan="5" style={{ ...S.td, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Sin logros este mes</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-
-            {/* REGISTRAR */}
-            {view === "registrar" && profile.role !== "admin" && (
-              <div style={S.card}>
-                <div style={S.sectionTitle}>➕ Registrar logro</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                  <div>
-                    <label style={S.label}>¿Qué has conseguido?</label>
-                    <select style={S.select} value={form.catalogId} onChange={e => setForm(f => ({ ...f, catalogId: e.target.value }))}>
-                      <option value="">Selecciona un item...</option>
-                      {CATALOG.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={S.label}>Fecha</label>
-                    <input style={S.input} type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label style={S.label}>Descripción breve</label>
-                    <input style={S.input} type="text" placeholder="Describe tu logro..." value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} />
-                  </div>
-                  {form.catalogId && (
-                    <div style={{ padding: "14px 18px", borderRadius: "12px", background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.2)" }}>
-                      <span style={{ color: "#4ECDC4", fontWeight: "800" }}>+{CATALOG.find(c => c.id === parseInt(form.catalogId))?.pts} puntos</span>
-                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px" }}> — pendiente de validación por Amanda</span>
-                    </div>
-                  )}
-                  {formMsg && <div style={formMsg.startsWith("✅") ? S.success : { color: "#FFE66D", fontSize: "13px" }}>{formMsg}</div>}
-                  <button style={S.btn("#FF6B6B")} onClick={handleSubmit}>Enviar logro 🚀</button>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <button onClick={() => setDarkMode(d => !d)} style={{ background: darkMode ? "#1f2937" : "#F3F4F6", border: "none", cursor: "pointer", borderRadius: "8px", padding: "7px 12px", fontSize: "16px", color: darkMode ? "#f9fafb" : "#374151", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                    {darkMode ? "☀️" : "🌙"}
+                  </button>
+                  <div style={{ fontSize: "13px", color: C.muted }}>{MONTH_NAMES[now.getMonth()]} {now.getFullYear()}</div>
                 </div>
               </div>
-            )}
+            </header>
 
-            {/* HISTORIAL */}
-            {view === "historial" && (
-              <>
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>📋 Actividades</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr>
-                      {profile.role === "admin" && <th style={S.th}>Usuario</th>}
-                      <th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Fecha</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th>
-                    </tr></thead>
-                    <tbody>
-                      {visibleRecords.map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
-                        const color = getUserColor(r.user_name, allNames);
-                        return (
-                          <tr key={r.id}>
-                            {profile.role === "admin" && <td style={{ ...S.td, fontWeight: "700", color: color.main }}>{r.user_name}</td>}
-                            <td style={S.td}>{cat?.icon} {cat?.label}</td>
-                            <td style={{ ...S.td, color: "rgba(255,255,255,0.5)" }}>{r.description}</td>
-                            <td style={{ ...S.td, color: "rgba(255,255,255,0.4)" }}>{r.date}</td>
-                            <td style={{ ...S.td, fontWeight: "800", color: color.main }}>+{r.pts}</td>
-                            <td style={S.td}><span style={S.badge(r.validated)}>{r.validated ? "✓ Validado" : "⏳ Pendiente"}</span></td>
-                          </tr>
-                        );
-                      })}
-                      {visibleRecords.length === 0 && <tr><td colSpan="6" style={{ ...S.td, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Sin registros aún</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-                {history.length > 0 && (
-                  <div style={S.card}>
-                    <div style={S.sectionTitle}>🗂 Meses anteriores</div>
-                    {history.map((h, i) => (
-                      <div key={i} style={{ padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", marginBottom: "12px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ fontWeight: "800" }}>{h.label}</div>
-                          <div style={{ fontSize: "13px", color: "#FFE66D" }}>🥇 {h.winner}</div>
-                        </div>
-                        <div style={{ display: "flex", gap: "16px", marginTop: "8px", flexWrap: "wrap" }}>
-                          {(h.scores || []).map(s => (
-                            <div key={s.name} style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>
-                              <span style={{ color: getUserColor(s.name, allNames).main }}>{s.name}</span>: {s.pts} pts
-                            </div>
-                          ))}
-                        </div>
+            <div style={S.page}>
+
+              {/* ── DASHBOARD ── */}
+              {view === "dashboard" && (
+                <>
+                  {/* Month navigation */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+                    <button onClick={() => setViewingMonthIndex(i => Math.min(i + 1, allMonths.length - 1))} disabled={viewingMonthIndex >= allMonths.length - 1}
+                      style={{ ...S.btnSecondary, padding: "8px 14px", opacity: viewingMonthIndex >= allMonths.length - 1 ? 0.3 : 1 }}>← Anterior</button>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={S.pageTitle}>{cmd.label}</div>
+                      <div style={{ fontSize: "13px", color: C.muted }}>{isCurrent ? `${records.filter(r => r.month === monthKey && r.validated).length} logros validados` : `Mes cerrado · 🥇 ${cmd.histData?.winner}`}</div>
+                    </div>
+                    <button onClick={() => setViewingMonthIndex(i => Math.max(i - 1, 0))} disabled={viewingMonthIndex === 0}
+                      style={{ ...S.btnSecondary, padding: "8px 14px", opacity: viewingMonthIndex === 0 ? 0.3 : 1 }}>Siguiente →</button>
+                  </div>
+
+                  {/* Department filter */}
+                  {isCurrent && departments.length > 0 && (
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+                      <button onClick={() => setSelectedDept("all")} style={{ padding: "6px 14px", borderRadius: "20px", border: `1.5px solid ${selectedDept === "all" ? C.teal : C.border}`, background: selectedDept === "all" ? `${C.teal}15` : "#fff", color: selectedDept === "all" ? C.teal : C.muted, fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Todos</button>
+                      {departments.map(d => <button key={d.id} onClick={() => setSelectedDept(d.id)} style={{ padding: "6px 14px", borderRadius: "20px", border: `1.5px solid ${selectedDept === d.id ? C.teal : C.border}`, background: selectedDept === d.id ? `${C.teal}15` : "#fff", color: selectedDept === d.id ? C.teal : C.muted, fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{d.name}</button>)}
+                    </div>
+                  )}
+
+                  {/* Last day banner */}
+                  {isCurrent && isLastDay && winner && profile.role === "admin" && (
+                    <div style={{ background: `linear-gradient(135deg, ${C.yellow}20, ${C.yellow}08)`, border: `1px solid ${C.yellow}50`, borderRadius: "12px", padding: "16px 20px", display: "flex", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
+                      <span style={{ fontSize: "28px" }}>🥇</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: "700", fontSize: "15px" }}>¡Último día del mes!</div>
+                        <div style={{ color: C.muted, fontSize: "13px" }}>Ganador: <strong style={{ color: C.dark }}>{winner.name}</strong> con {winner.pts} pts</div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ADMIN */}
-            {view === "admin" && profile.role === "admin" && (
-              <>
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>👥 Gestión de Usuarios</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr>
-                      <th style={S.th}>Nombre</th><th style={S.th}>Email</th><th style={S.th}>Rol actual</th><th style={S.th}>Cambiar rol</th>
-                    </tr></thead>
-                    <tbody>
-                      {profiles.map(p => (
-                        <tr key={p.id}>
-                          <td style={{ ...S.td, fontWeight: "700" }}>{p.name}</td>
-                          <td style={{ ...S.td, color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>{p.email}</td>
-                          <td style={S.td}><span style={S.roleBadge(p.role)}>{p.role}</span></td>
-                          <td style={{ ...S.td, display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                            {p.id !== session.user.id ? (
-                              <>
-                                {p.role !== "user" && <button style={S.smallBtn("#4ECDC4")} onClick={() => handleUpdateRole(p.id, "user")}>→ Usuario</button>}
-                                {p.role !== "admin" && <button style={S.smallBtn("#FFE66D")} onClick={() => handleUpdateRole(p.id, "admin")}>→ Admin</button>}
-                                {p.role !== "pending" && <button style={S.dangerBtn} onClick={() => handleUpdateRole(p.id, "pending")}>→ Pendiente</button>}
-                              </>
-                            ) : <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.2)" }}>Tú</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>⚙️ Validar y gestionar registros</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr>
-                      <th style={S.th}>Usuario</th><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th><th style={S.th}>Acciones</th>
-                    </tr></thead>
-                    <tbody>
-                      {records.map(r => {
-                        const cat = CATALOG.find(c => c.id === r.catalog_id);
-                        const color = getUserColor(r.user_name, allNames);
-                        return (
-                          <tr key={r.id}>
-                            <td style={{ ...S.td, fontWeight: "700", color: color.main }}>{r.user_name}</td>
-                            <td style={S.td}>{cat?.icon} {cat?.label}</td>
-                            <td style={{ ...S.td, color: "rgba(255,255,255,0.5)" }}>{r.description}</td>
-                            <td style={{ ...S.td, fontWeight: "800", color: color.main }}>+{r.pts}</td>
-                            <td style={S.td}><span style={S.badge(r.validated)}>{r.validated ? "✓ Validado" : "⏳ Pendiente"}</span></td>
-                            <td style={{ ...S.td, display: "flex", gap: "6px" }}>
-                              {!r.validated && <button style={S.smallBtn("#4ECDC4")} onClick={() => handleValidate(r.id)}>✓</button>}
-                              <button style={S.smallBtn("#FFE66D")} onClick={() => setEditRecord({ ...r })}>✏️</button>
-                              <button style={S.dangerBtn} onClick={() => handleDelete(r.id)}>🗑</button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {records.length === 0 && <tr><td colSpan="6" style={{ ...S.td, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Sin registros aún</td></tr>}
-                    </tbody>
-                  </table>
-                  {!isLastDay && (
-                    <div style={{ marginTop: "20px", padding: "14px 18px", borderRadius: "12px", background: "rgba(255,230,109,0.06)", border: "1px solid rgba(255,230,109,0.2)", fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>
-                      ⏰ El cierre de mes estará disponible el {lastDayOfMonth} de {MONTH_NAMES[now.getMonth()]}.
+                      <button style={S.btnYellow} onClick={() => setClosingMonth(true)}>Cerrar mes →</button>
                     </div>
                   )}
-                </div>
 
-                <div style={S.card}>
-                  <div style={S.sectionTitle}>🎡 Premios de la Ruleta</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {prizes.length === 0 && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>No hay premios configurados aún.</div>}
-                    {prizes.map((p, i) => {
-                      const prizeColors = ["#FF6B6B","#4ECDC4","#FFE66D","#a78bfa","#f97316","#34d399","#60a5fa","#f472b6"];
-                      const c = prizeColors[i % prizeColors.length];
-                      return (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: `1px solid ${c}33` }}>
-                          <span style={{ fontSize: "14px", color: c, fontWeight: "600" }}>🎁 {p.label}</span>
-                          <button style={S.dangerBtn} onClick={() => handleDeletePrize(p.id)}>🗑</button>
+                  {/* Challenge banner */}
+                  {challenge && isCurrent && (
+                    <div style={{ background: `linear-gradient(135deg, ${C.teal}15, ${C.green}08)`, border: `1px solid ${C.teal}30`, borderRadius: "12px", padding: "20px 24px", marginBottom: "20px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                            <span style={{ fontSize: "20px" }}>🎯</span>
+                            <span style={{ fontWeight: "800", fontSize: "16px" }}>Reto del equipo</span>
+                            <span style={{ ...S.badge(C.teal, `${C.teal}15`) }}>Activo</span>
+                          </div>
+                          <div style={{ fontWeight: "700", fontSize: "17px", marginBottom: "4px" }}>{challenge.title}</div>
+                          {challenge.description && <div style={{ fontSize: "13px", color: C.muted, marginBottom: "10px" }}>{challenge.description}</div>}
+                          {challenge.prize && <div style={{ fontSize: "13px", marginBottom: "12px" }}>🎁 Premio: <strong>{challenge.prize}</strong></div>}
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ flex: 1, height: "8px", borderRadius: "4px", background: `${C.teal}20`, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${challengeProgress}%`, background: `linear-gradient(90deg, ${C.teal}, ${C.green})`, borderRadius: "4px", transition: "width 0.8s ease" }} />
+                            </div>
+                            <span style={{ fontSize: "13px", fontWeight: "700", color: C.teal, whiteSpace: "nowrap" }}>{challengeCurrentPts} / {challenge.target_pts} pts</span>
+                          </div>
+                          <div style={{ fontSize: "12px", color: C.muted, marginTop: "6px" }}>Fecha límite: {challenge.deadline} · {challengeProgress}% completado</div>
                         </div>
-                      );
-                    })}
-                    <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
-                      <input style={{ ...S.input, flex: 1 }} placeholder="Nuevo premio (ej: Día libre 🌟)" value={newPrize} onChange={e => setNewPrize(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAddPrize()} />
-                      <button style={S.btn("#FFE66D")} onClick={handleAddPrize}>Añadir</button>
+                        {profile.role === "admin" && (
+                          <button style={S.btnDanger} onClick={handleCloseChallenge}>Cerrar reto</button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </main>
+                  )}
 
-          {/* MODAL EDITAR */}
-          {editRecord && (
-            <div style={S.overlay}>
-              <div style={S.modal}>
-                <div style={{ fontWeight: "800", fontSize: "18px", marginBottom: "20px" }}>✏️ Editar Registro</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                  <div>
-                    <label style={S.label}>Logro</label>
-                    <select style={S.select} value={editRecord.catalog_id} onChange={e => setEditRecord(r => ({ ...r, catalog_id: parseInt(e.target.value) }))}>
-                      {CATALOG.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={S.label}>Descripción</label>
-                    <input style={S.input} value={editRecord.description} onChange={e => setEditRecord(r => ({ ...r, description: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label style={S.label}>Fecha</label>
-                    <input style={S.input} type="date" value={editRecord.date} onChange={e => setEditRecord(r => ({ ...r, date: e.target.value }))} />
-                  </div>
-                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-                    <button style={S.dangerBtn} onClick={() => setEditRecord(null)}>Cancelar</button>
-                    <button style={S.btn("#4ECDC4")} onClick={handleSaveEdit}>Guardar cambios</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODAL RULETA */}
-          {showRoulette && (
-            <div style={S.overlay} onClick={() => { if (!spinning) { setShowRoulette(false); setWonPrize(null); } }}>
-              <div style={{ ...S.modal, maxWidth: "520px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontWeight: "900", fontSize: "22px", marginBottom: "4px" }}>🎡 Ruleta de Premios</div>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px", marginBottom: "24px" }}>
-                  {winner ? `¡Felicidades ${winner.name}! Gira la ruleta 🎉` : ""}
-                </div>
-
-                {prizes.length === 0 ? (
-                  <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
-                    Amanda aún no ha configurado los premios.<br/>
-                    <span style={{ fontSize: "12px" }}>Ve a ⚙️ Admin → Premios de la Ruleta</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* CANVAS RULETA */}
-                    <div style={{ position: "relative", width: "300px", height: "300px", margin: "0 auto 24px" }}>
-                      {/* Puntero */}
-                      <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", zIndex: 10, fontSize: "28px", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.8))" }}>▼</div>
-                      {/* Ruleta */}
-                      <div style={{
-                        width: "300px", height: "300px", borderRadius: "50%",
-                        border: "4px solid rgba(255,255,255,0.2)",
-                        boxShadow: "0 0 40px rgba(255,107,107,0.3), inset 0 0 20px rgba(0,0,0,0.3)",
-                        transform: `rotate(${spinDeg}deg)`,
-                        transition: spinning ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
-                        position: "relative", overflow: "hidden",
-                        background: (() => {
-                          const prizeColors = ["#FF6B6B","#4ECDC4","#FFE66D","#a78bfa","#f97316","#34d399","#60a5fa","#f472b6"];
-                          const n = prizes.length;
-                          const sliceDeg = 360 / n;
-                          const stops = prizes.map((_, i) => {
-                            const c = prizeColors[i % prizeColors.length];
-                            const start = i * sliceDeg;
-                            const end = (i + 1) * sliceDeg;
-                            return `${c} ${start}deg ${end}deg`;
-                          }).join(", ");
-                          return `conic-gradient(${stops})`;
-                        })(),
-                      }}>
-                        {prizes.map((p, i) => {
-                          const n = prizes.length;
-                          const sliceDeg = 360 / n;
-                          const angle = i * sliceDeg + sliceDeg / 2;
-                          const rad = (angle - 90) * (Math.PI / 180);
-                          const r = 95;
-                          const x = 150 + r * Math.cos(rad);
-                          const y = 150 + r * Math.sin(rad);
+                  {/* Leaderboard */}
+                  <div style={S.card}>
+                    <div style={S.sectionLabel}>Clasificación</div>
+                    {dPoints.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "40px 0", color: C.muted }}>
+                        <div style={{ fontSize: "32px", marginBottom: "8px" }}>🏁</div>
+                        <div>Aún no hay puntos este mes</div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {dPoints.map((u, i) => {
+                          const color = getColor(u.name);
                           return (
-                            <div key={p.id} style={{
-                              position: "absolute", left: `${x}px`, top: `${y}px`,
-                              transform: `translate(-50%, -50%) rotate(${angle}deg)`,
-                              fontSize: n > 6 ? "9px" : "11px", fontWeight: "800",
-                              color: "#000", textShadow: "none",
-                              maxWidth: "70px", textAlign: "center", lineHeight: 1.2,
-                              pointerEvents: "none",
-                            }}>
-                              {p.label.length > 12 ? p.label.slice(0, 12) + "…" : p.label}
+                            <div key={u.id || u.name} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", borderRadius: "10px", background: i === 0 ? `${color}10` : darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${i === 0 ? color + "30" : C.border}` }}>
+                              <div style={{ width: "32px", height: "32px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: i === 0 ? "linear-gradient(135deg, #FFD700, #FFA500)" : i === 1 ? "linear-gradient(135deg, #C0C0C0, #888)" : "linear-gradient(135deg, #CD7F32, #8B4513)", fontSize: "16px", flexShrink: 0 }}>
+                                {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                              </div>
+                              <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "14px", color: "#fff", flexShrink: 0 }}>{u.name[0]}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "5px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                  {u.name}
+                                  {(() => { const lv = getLevel(getTotalPts(u.id)); return <span style={{ ...S.badge(lv.color, `${lv.color}15`), fontSize: "11px" }}>{lv.icon} {lv.label}</span>; })()}
+                                  {departments.find(d => d.id === u.dept_id) && <span style={{ ...S.badge(C.teal, `${C.teal}15`), fontSize: "11px" }}>{departments.find(d => d.id === u.dept_id)?.name}</span>}
+                                </div>
+                                <div style={{ height: "5px", borderRadius: "3px", background: `${color}30`, overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${Math.max((u.pts / dMax) * 100, 3)}%`, background: color, borderRadius: "3px", transition: "width 0.8s ease" }} />
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px", flexShrink: 0 }}>
+                                <div style={{ fontSize: "22px", fontWeight: "900", color }}>{u.pts}<span style={{ fontSize: "12px", color: C.muted, fontWeight: "500" }}> pts</span></div>
+                                {profile.role !== "admin" && u.id !== session.user.id && (
+                                  <button onClick={() => handleLike(u.id)} style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "20px", border: `1px solid ${myLikes.includes(u.id) ? C.teal : C.border}`, background: myLikes.includes(u.id) ? `${C.teal}15` : "#fff", cursor: myLikes.includes(u.id) ? "default" : "pointer", fontSize: "12px", fontWeight: "600", color: myLikes.includes(u.id) ? C.teal : C.muted, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                    👏 {likes[u.id] || 0}
+                                  </button>
+                                )}
+                                {profile.role === "admin" && (
+                                  <span style={{ fontSize: "12px", color: C.muted }}>👏 {likes[u.id] || 0}</span>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
                       </div>
-                      {/* Centro */}
-                      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "40px", height: "40px", borderRadius: "50%", background: "#0f0f2e", border: "3px solid rgba(255,255,255,0.3)", zIndex: 5 }} />
+                    )}
+                  </div>
+
+                  {/* Recent records */}
+                  <div style={S.card}>
+                    <div style={S.sectionLabel}>{isCurrent ? "Últimos logros" : "Logros del mes"}</div>
+                    {dRecords.length === 0 ? <div style={{ color: C.muted, textAlign: "center", padding: "24px 0", fontSize: "14px" }}>Sin logros registrados</div> : (
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead><tr><th style={S.th}>Persona</th><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th></tr></thead>
+                        <tbody>
+                          {dRecords.map(r => {
+                            const cat = catalog.find(c => c.id === r.catalog_id);
+                            const color = getColor(r.user_name);
+                            return (
+                              <tr key={r.id}>
+                                <td style={S.td}><span style={{ fontWeight: "700", color }}>{r.user_name}</span></td>
+                                <td style={S.td}>{cat?.icon} {cat?.label}</td>
+                                <td style={{ ...S.td, color: C.muted }}>{r.description}</td>
+                                <td style={{ ...S.td, fontWeight: "700", color }}>{r.pts} pts</td>
+                                <td style={S.td}>{r.validated ? <span style={S.badge("#059669","#D1FAE5")}>✓ Validado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* ── REGISTRAR ── */}
+              {view === "registrar" && profile.role !== "admin" && (
+                <div style={{ maxWidth: "560px" }}>
+                  <div style={S.pageTitle}>Nuevo logro</div>
+                  <div style={S.pageSubtitle}>Registra lo que has conseguido hoy</div>
+                  <div style={S.card}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                      <div><label style={S.label}>¿Qué has conseguido?</label>
+                        <select style={S.select} value={form.catalogId} onChange={e => setForm(f => ({ ...f, catalogId: e.target.value }))}>
+                          <option value="">Selecciona un item...</option>
+                          {catalog.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
+                        </select>
+                      </div>
+                      {departments.length > 0 && (
+                        <div><label style={S.label}>Departamento</label>
+                          <select style={S.select} value={form.deptId} onChange={e => setForm(f => ({ ...f, deptId: e.target.value }))}>
+                            <option value="">Sin departamento</option>
+                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div><label style={S.label}>Fecha</label><input style={S.input} type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
+                      <div><label style={S.label}>Descripción</label><input style={S.input} type="text" placeholder="Describe brevemente tu logro..." value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} /></div>
+                      {form.catalogId && (
+                        <div style={{ padding: "12px 16px", borderRadius: "8px", background: `${C.teal}10`, border: `1px solid ${C.teal}30` }}>
+                          <span style={{ color: C.teal, fontWeight: "700" }}>+{catalog.find(c => c.id === form.catalogId)?.pts} puntos</span>
+                          <span style={{ color: C.muted, fontSize: "13px" }}> · pendiente de validación</span>
+                        </div>
+                      )}
+                      {formMsg && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: formMsg.startsWith("✅") ? "#D1FAE5" : "#FEF3C7", color: formMsg.startsWith("✅") ? "#065F46" : "#92400E" }}>{formMsg}</div>}
+                      <button style={S.btnPrimary} onClick={handleSubmit}>Enviar logro →</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PERFIL ── */}
+              {view === "perfil" && profile.role !== "admin" && (() => {
+                const myRecords = records.filter(r => r.user_id === session.user.id);
+                const myValidated = myRecords.filter(r => r.validated);
+                const totalPts = myValidated.reduce((a, b) => a + b.pts, 0);
+                const thisMonthPts = myValidated.filter(r => r.month === monthKey).reduce((a, b) => a + b.pts, 0);
+                const myRank = currentPoints.findIndex(p => p.id === profile.id) + 1;
+                const color = getColor(profile.name);
+
+                // Points by month (last 6 months)
+                const last6 = [];
+                for (let i = 5; i >= 0; i--) {
+                  const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                  const key = `${d.getFullYear()}-${d.getMonth()}`;
+                  const label = MONTH_NAMES[d.getMonth()].slice(0, 3);
+                  const pts = myValidated.filter(r => r.month === key).reduce((a, b) => a + b.pts, 0);
+                  last6.push({ label, pts, key });
+                }
+                const maxBar = Math.max(...last6.map(m => m.pts), 1);
+
+                // Most used catalog items
+                const itemCount = {};
+                myValidated.forEach(r => { itemCount[r.catalog_id] = (itemCount[r.catalog_id] || 0) + 1; });
+                const topItems = Object.entries(itemCount).sort((a,b) => b[1]-a[1]).slice(0,3).map(([id, count]) => ({ cat: catalog.find(c => c.id === id), count }));
+
+                // Historical ranking positions
+                const historicalWins = history.filter(h => h.winner === profile.name).length;
+
+                return (
+                  <>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "28px" }}>
+                      <div style={{ width: "72px", height: "72px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "28px", color: "#fff", flexShrink: 0 }}>{profile.name[0]}</div>
+                      <div>
+                        <div style={{ fontSize: "26px", fontWeight: "900" }}>{profile.name}</div>
+                        <div style={{ fontSize: "14px", color: C.muted }}>{profile.email}</div>
+                        {departments.find(d => d.id === profile.dept_id) && (
+                          <span style={{ ...S.badge(C.teal, `${C.teal}15`), marginTop: "6px" }}>{departments.find(d => d.id === profile.dept_id)?.name}</span>
+                        )}
+                      </div>
                     </div>
 
-                    {wonPrize && (
-                      <div style={{ padding: "20px", borderRadius: "16px", background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,107,0.1))", border: "1px solid rgba(255,215,0,0.4)", marginBottom: "20px" }}>
-                        <div style={{ fontSize: "36px", marginBottom: "6px" }}>🎊</div>
-                        <div style={{ fontWeight: "900", fontSize: "20px", color: "#FFD700" }}>¡Has ganado!</div>
-                        <div style={{ fontSize: "18px", fontWeight: "700", marginTop: "4px", color: "#fff" }}>{wonPrize.label}</div>
+                    {/* Stat cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+                      {[
+                        { label: "Puntos este mes", value: thisMonthPts, icon: "📅", color: C.teal },
+                        { label: "Puntos totales", value: totalPts, icon: "🏆", color: C.green },
+                        { label: "Posición actual", value: myRank > 0 ? `#${myRank}` : "—", icon: "🎯", color: C.yellow },
+                        { label: "Meses ganados", value: historicalWins, icon: "🥇", color: "#F59E0B" },
+                      ].map(s => (
+                        <div key={s.label} style={{ ...S.statCard(s.color), display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div style={{ fontSize: "22px" }}>{s.icon}</div>
+                          <div style={{ fontSize: "26px", fontWeight: "900", color: s.color }}>{s.value}</div>
+                          <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Evolution chart */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Evolución de puntos — últimos 6 meses</div>
+                      <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", height: "140px", padding: "0 8px" }}>
+                        {last6.map((m, i) => (
+                          <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%" }}>
+                            <div style={{ fontSize: "12px", fontWeight: "700", color: m.pts > 0 ? color : C.muted }}>{m.pts > 0 ? m.pts : ""}</div>
+                            <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end" }}>
+                              <div style={{ width: "100%", height: `${Math.max((m.pts / maxBar) * 100, m.pts > 0 ? 8 : 3)}%`, background: m.key === monthKey ? color : `${color}50`, borderRadius: "6px 6px 0 0", transition: "height 0.6s ease", minHeight: "3px" }} />
+                            </div>
+                            <div style={{ fontSize: "11px", color: C.muted, fontWeight: "600" }}>{m.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Top logros */}
+                    {topItems.length > 0 && (
+                      <div style={S.card}>
+                        <div style={S.sectionLabel}>Logros más frecuentes</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                          {topItems.map(({ cat, count }) => cat && (
+                            <div key={cat.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <span style={{ fontSize: "20px" }}>{cat.icon}</span>
+                                <span style={{ fontWeight: "600", fontSize: "14px" }}>{cat.label}</span>
+                              </div>
+                              <span style={S.badge(color, `${color}15`)}>{count}x</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                      {!spinning && (
-                        <button style={{ ...S.btn("#FF6B6B"), fontSize: "16px", padding: "14px 32px" }} onClick={handleSpin} disabled={spinning}>
-                          {wonPrize ? "🔄 Volver a girar" : "🎡 ¡Girar!"}
-                        </button>
+                    {/* Recent activity */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Actividad reciente</div>
+                      {myRecords.slice(0, 8).length === 0 ? (
+                        <div style={{ color: C.muted, textAlign: "center", padding: "24px 0" }}>Sin logros registrados aún</div>
+                      ) : (
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead><tr><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Fecha</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th></tr></thead>
+                          <tbody>
+                            {myRecords.slice(0, 8).map(r => {
+                              const cat = catalog.find(c => c.id === r.catalog_id);
+                              return (
+                                <tr key={r.id}>
+                                  <td style={S.td}>{cat?.icon} {cat?.label}</td>
+                                  <td style={{ ...S.td, color: C.muted }}>{r.description}</td>
+                                  <td style={{ ...S.td, color: C.muted }}>{r.date}</td>
+                                  <td style={{ ...S.td, fontWeight: "700", color }}>{r.pts} pts</td>
+                                  <td style={S.td}>
+                                    {r.validated ? <span style={S.badge("#059669","#D1FAE5")}>✓ Validado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}
+                                    {r.manager_comment && <div style={{ fontSize: "11px", color: C.muted, marginTop: "3px" }}>💬 {r.manager_comment}</div>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       )}
-                      {spinning && <div style={{ color: "rgba(255,255,255,0.5)", padding: "14px" }}>Girando... 🌀</div>}
-                      {!spinning && <button style={S.dangerBtn} onClick={() => { setShowRoulette(false); setWonPrize(null); }}>Cerrar</button>}
                     </div>
                   </>
+                );
+              })()}
+
+              {/* ── HISTORIAL ── */}
+              {view === "historial" && (
+                <>
+                  <div style={S.pageTitle}>Historial</div>
+                  <div style={S.pageSubtitle}>Todos los logros registrados</div>
+                  <div style={S.card}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr>
+                        {profile.role === "admin" && <th style={S.th}>Persona</th>}
+                        <th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Fecha</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th>
+                      </tr></thead>
+                      <tbody>
+                        {visibleRecords.map(r => {
+                          const cat = catalog.find(c => c.id === r.catalog_id);
+                          const color = getColor(r.user_name);
+                          return (
+                            <tr key={r.id}>
+                              {profile.role === "admin" && <td style={{ ...S.td, fontWeight: "700", color }}>{r.user_name}</td>}
+                              <td style={S.td}>{cat?.icon} {cat?.label}</td>
+                              <td style={{ ...S.td, color: C.muted }}>{r.description}</td>
+                              <td style={{ ...S.td, color: C.muted }}>{r.date}</td>
+                              <td style={{ ...S.td, fontWeight: "700", color }}>{r.pts} pts</td>
+                              <td style={S.td}>{r.validated ? <span style={S.badge("#059669","#D1FAE5")}>✓ Validado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}</td>
+                            </tr>
+                          );
+                        })}
+                        {visibleRecords.length === 0 && <tr><td colSpan="6" style={{ ...S.td, textAlign: "center", color: C.muted, padding: "32px" }}>Sin registros aún</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                  {history.length > 0 && (
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Meses cerrados</div>
+                      {history.map((h, i) => (
+                        <div key={i} style={{ padding: "14px 16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}`, marginBottom: "10px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                            <div style={{ fontWeight: "700" }}>{h.label}</div>
+                            <span style={S.badge("#D97706","#FEF3C7")}>🥇 {h.winner}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                            {(h.scores || []).map(s => <div key={s.name} style={{ fontSize: "13px" }}><span style={{ color: getColor(s.name), fontWeight: "600" }}>{s.name}</span><span style={{ color: C.muted }}> · {s.pts} pts</span></div>)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── RULETA ── */}
+              {view === "ruleta" && (
+                <div style={{ maxWidth: "600px" }}>
+                  <div style={S.pageTitle}>Ruleta de premios</div>
+                  <div style={S.pageSubtitle}>{winner ? `¡Felicidades ${winner.name}! Gira para descubrir tu premio 🎉` : "Solo el ganador del mes puede girar"}</div>
+                  <div style={S.card}>
+                    {prizes.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "48px 0", color: C.muted }}>
+                        <div style={{ fontSize: "40px", marginBottom: "12px" }}>🎡</div>
+                        <div style={{ fontWeight: "600" }}>No hay premios configurados</div>
+                        <div style={{ fontSize: "13px", marginTop: "4px" }}>El manager puede añadirlos en Configuración</div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px" }}>
+                        <div style={{ position: "relative", width: "400px", height: "400px" }}>
+                          <div style={{ position: "absolute", top: "-16px", left: "50%", transform: "translateX(-50%)", zIndex: 10, fontSize: "32px", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>▼</div>
+                          <svg width="400" height="400" viewBox="0 0 400 400" style={{ transform: `rotate(${spinDeg}deg)`, transition: spinning ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none", filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.15))", borderRadius: "50%" }}>
+                            {(() => {
+                              const n = prizes.length, cx = 200, cy = 200, r = 195;
+                              const toRad = d => d * Math.PI / 180;
+                              const sliceDeg = 360 / n;
+                              return prizes.map((p, i) => {
+                                const sa = i * sliceDeg - 90, ea = sa + sliceDeg;
+                                const x1 = cx + r * Math.cos(toRad(sa)), y1 = cy + r * Math.sin(toRad(sa));
+                                const x2 = cx + r * Math.cos(toRad(ea)), y2 = cy + r * Math.sin(toRad(ea));
+                                const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${sliceDeg > 180 ? 1 : 0},1 ${x2},${y2} Z`;
+                                const mid = sa + sliceDeg / 2;
+                                // Text along the radius, nicely centered
+                                const textR = r * 0.58;
+                                const tx = cx + textR * Math.cos(toRad(mid));
+                                const ty = cy + textR * Math.sin(toRad(mid));
+                                const color = BRAND_COLORS[i % BRAND_COLORS.length];
+                                // Split label into words for multi-line
+                                const words = p.label.split(" ");
+                                const maxW = n <= 4 ? 3 : n <= 6 ? 2 : 2;
+                                const lines = [];
+                                for (let w = 0; w < words.length; w += maxW) lines.push(words.slice(w, w + maxW).join(" "));
+                                const fs = n <= 4 ? 14 : n <= 6 ? 12 : 10;
+                                const lh = fs * 1.4;
+                                return (
+                                  <g key={p.id}>
+                                    <path d={path} fill={color} stroke="#fff" strokeWidth="2" />
+                                    <g transform={`translate(${tx},${ty}) rotate(${mid + 90})`}>
+                                      {lines.slice(0, 3).map((line, li) => (
+                                        <text key={li} x={0} y={(li - (Math.min(lines.length, 3) - 1) / 2) * lh} textAnchor="middle" dominantBaseline="central" fill="#fff" fontWeight="700" fontSize={fs} fontFamily="Plus Jakarta Sans, sans-serif" style={{ pointerEvents: "none", textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}>{line}</text>
+                                      ))}
+                                    </g>
+                                  </g>
+                                );
+                              });
+                            })()}
+                            <circle cx="200" cy="200" r="195" fill="none" stroke="#fff" strokeWidth="3" />
+                            <circle cx="200" cy="200" r="24" fill="#fff" stroke={C.teal} strokeWidth="3" />
+                            <text x="200" y="200" textAnchor="middle" dominantBaseline="central" fill={C.teal} fontWeight="900" fontSize="14" fontFamily="Plus Jakarta Sans, sans-serif">★</text>
+                          </svg>
+                        </div>
+
+                        {wonPrize && (
+                          <div style={{ padding: "20px 28px", borderRadius: "12px", background: `linear-gradient(135deg, ${C.yellow}20, ${C.green}10)`, border: `1px solid ${C.yellow}50`, textAlign: "center", width: "100%" }}>
+                            <div style={{ fontSize: "32px", marginBottom: "6px" }}>🎊</div>
+                            <div style={{ fontWeight: "900", fontSize: "20px", color: C.dark }}>¡Premio ganado!</div>
+                            <div style={{ fontSize: "18px", fontWeight: "600", marginTop: "4px", color: C.text }}>{wonPrize.label}</div>
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          {!spinning && <button style={S.btnPrimary} onClick={handleSpin}>{wonPrize ? "🔄 Girar de nuevo" : "🎡 ¡Girar!"}</button>}
+                          {spinning && <div style={{ color: C.muted, padding: "10px 20px" }}>Girando... 🌀</div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {profile.role === "admin" && (
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Premios disponibles</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                        {prizes.map((p, i) => (
+                          <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "8px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                            <span style={{ fontSize: "14px", fontWeight: "600" }}>🎁 {p.label}</span>
+                            <button style={S.btnDanger} onClick={() => handleDeletePrize(p.id)}>Eliminar</button>
+                          </div>
+                        ))}
+                        {prizes.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin premios aún</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <input style={{ ...S.input, flex: 1 }} placeholder="Nuevo premio (ej: Tarde libre 🌟)" value={newPrize} onChange={e => setNewPrize(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAddPrize()} />
+                        <button style={S.btnPrimary} onClick={handleAddPrize}>Añadir</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── VALIDAR ── */}
+              {view === "validar" && profile.role === "admin" && (
+                <>
+                  <div style={S.pageTitle}>Validar logros</div>
+                  <div style={S.pageSubtitle}>{pendingCount} logros pendientes de validación</div>
+                  <div style={S.card}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr><th style={S.th}>Persona</th><th style={S.th}>Logro</th><th style={S.th}>Descripción</th><th style={S.th}>Fecha</th><th style={S.th}>Pts</th><th style={S.th}>Estado</th><th style={S.th}>Acciones</th></tr></thead>
+                      <tbody>
+                        {records.map(r => {
+                          const cat = catalog.find(c => c.id === r.catalog_id);
+                          const color = getColor(r.user_name);
+                          return (
+                            <tr key={r.id}>
+                              <td style={{ ...S.td, fontWeight: "700", color }}>{r.user_name}</td>
+                              <td style={S.td}>{cat?.icon} {cat?.label}</td>
+                              <td style={{ ...S.td, color: C.muted }}>{r.description}</td>
+                              <td style={{ ...S.td, color: C.muted }}>{r.date}</td>
+                              <td style={{ ...S.td, fontWeight: "700", color }}>{r.pts} pts</td>
+                              <td style={S.td}>{r.validated ? <span style={S.badge("#059669","#D1FAE5")}>✓ Validado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}</td>
+                              <td style={{ ...S.td, display: "flex", gap: "6px" }}>
+                                {!r.validated && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <input style={{ ...S.input, fontSize: "12px", padding: "5px 10px" }} placeholder="Comentario (opcional)..." value={validationComment[r.id] || ""} onChange={e => setValidationComment(vc => ({ ...vc, [r.id]: e.target.value }))} />
+                                <button style={S.btnGhost(C.teal)} onClick={() => handleValidateWithComment(r.id)}>✓ Validar</button>
+                              </div>
+                            )}
+                                <button style={S.btnGhost("#F59E0B")} onClick={() => setEditRecord({ ...r })}>✏️</button>
+                                <button style={S.btnDanger} onClick={() => handleDelete(r.id)}>🗑</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {records.length === 0 && <tr><td colSpan="7" style={{ ...S.td, textAlign: "center", color: C.muted, padding: "32px" }}>Sin registros aún</td></tr>}
+                      </tbody>
+                    </table>
+                    {!isLastDay && <div style={{ marginTop: "16px", padding: "12px 16px", borderRadius: "8px", background: `${C.yellow}10`, border: `1px solid ${C.yellow}30`, fontSize: "13px", color: "#92400E" }}>⏰ El cierre de mes estará disponible el {lastDayOfMonth} de {MONTH_NAMES[now.getMonth()]}.</div>}
+                  </div>
+                </>
+              )}
+
+              {/* ── EQUIPO ── */}
+              {view === "equipo" && profile.role === "admin" && (
+                <>
+                  <div style={S.pageTitle}>Equipo</div>
+                  <div style={S.pageSubtitle}>Gestiona los miembros y sus roles</div>
+                  <div style={S.card}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr><th style={S.th}>Nombre</th><th style={S.th}>Email</th><th style={S.th}>Departamento</th><th style={S.th}>Rol</th><th style={S.th}>Acciones</th></tr></thead>
+                      <tbody>
+                        {profiles.map(p => (
+                          <tr key={p.id}>
+                            <td style={{ ...S.td, fontWeight: "700" }}>{p.name}</td>
+                            <td style={{ ...S.td, color: C.muted, fontSize: "12px" }}>{p.email}</td>
+                            <td style={S.td}>
+                              <select style={{ ...S.select, width: "auto", fontSize: "12px", padding: "5px 10px" }} value={p.dept_id || ""} onChange={e => handleUpdateDeptForUser(p.id, e.target.value || null)}>
+                                <option value="">Sin departamento</option>
+                                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                              </select>
+                            </td>
+                            <td style={S.td}>{p.role === "admin" ? <span style={S.badge(C.teal, `${C.teal}15`)}>Manager</span> : <span style={S.badge(C.muted, "#F3F4F6")}>Empleado</span>}</td>
+                            <td style={{ ...S.td, display: "flex", gap: "6px" }}>
+                              {p.id !== session.user.id ? (
+                                <>
+                                  {p.role !== "user" && <button style={S.btnGhost(C.teal)} onClick={() => handleUpdateRole(p.id, "user")}>→ Empleado</button>}
+                                  {p.role !== "admin" && <button style={S.btnGhost(C.yellow)} onClick={() => handleUpdateRole(p.id, "admin")}>→ Manager</button>}
+                                </>
+                              ) : <span style={{ fontSize: "12px", color: C.muted }}>Tú</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={S.card}>
+                    <div style={S.sectionLabel}>Invitaciones</div>
+                    <div style={{ fontSize: "13px", color: C.muted, marginBottom: "16px" }}>
+                      Comparte este enlace con tu equipo para que se registren directamente en tu empresa:
+                    </div>
+                    <div style={{ padding: "10px 14px", borderRadius: "8px", background: `${C.teal}10`, border: `1px solid ${C.teal}30`, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                      <span style={{ fontSize: "12px", color: C.teal, fontWeight: "600", wordBreak: "break-all" }}>{`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`}</span>
+                      <button style={{ ...S.btnGhost(C.teal), whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`)}>📋 Copiar</button>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+                      <input style={{ ...S.input, flex: 1 }} type="email" placeholder="email@empresa.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSendInvite()} />
+                      <button style={S.btnPrimary} onClick={handleSendInvite}>Añadir</button>
+                    </div>
+                    {inviteMsg && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: inviteMsg.startsWith("✅") ? "#D1FAE5" : "#FEF3C7", color: inviteMsg.startsWith("✅") ? "#065F46" : "#92400E", marginBottom: "12px" }}>{inviteMsg}</div>}
+                    {invitations.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {invitations.map(inv => {
+                          const isRegistered = profiles.find(p => p.email === inv.email);
+                          return (
+                            <div key={inv.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "8px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <span style={{ fontSize: "14px" }}>{inv.email}</span>
+                                {isRegistered ? <span style={S.badge("#059669","#D1FAE5")}>✓ Registrado</span> : <span style={S.badge("#D97706","#FEF3C7")}>⏳ Pendiente</span>}
+                              </div>
+                              <button style={S.btnDanger} onClick={() => handleDeleteInvitation(inv.id)}>Eliminar</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {invitations.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin invitaciones registradas aún</div>}
+                  </div>
+                </>
+              )}
+
+              {/* ── DEPARTAMENTOS ── */}
+              {view === "departamentos" && profile.role === "admin" && (
+                <>
+                  <div style={S.pageTitle}>Departamentos</div>
+                  <div style={S.pageSubtitle}>Organiza tu equipo por áreas</div>
+                  <div style={S.card}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+                      {departments.length === 0 && <div style={{ color: C.muted, fontSize: "14px", padding: "16px 0" }}>Sin departamentos creados aún</div>}
+                      {departments.map(d => (
+                        <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                          {editDept?.id === d.id ? (
+                            <input style={{ ...S.input, flex: 1, marginRight: "12px" }} value={editDept.name} onChange={e => setEditDept(ed => ({ ...ed, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleSaveEditDept()} autoFocus />
+                          ) : (
+                            <span style={{ fontWeight: "600", fontSize: "14px" }}>🏢 {d.name}</span>
+                          )}
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            {editDept?.id === d.id ? (
+                              <>
+                                <button style={S.btnPrimary} onClick={handleSaveEditDept}>Guardar</button>
+                                <button style={S.btnSecondary} onClick={() => setEditDept(null)}>Cancelar</button>
+                              </>
+                            ) : (
+                              <>
+                                <button style={S.btnGhost(C.teal)} onClick={() => setEditDept({ ...d })}>✏️ Editar</button>
+                                <button style={S.btnDanger} onClick={() => handleDeleteDept(d.id)}>Eliminar</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <input style={{ ...S.input, flex: 1 }} placeholder="Nombre del departamento..." value={newDept} onChange={e => setNewDept(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAddDept()} />
+                      <button style={S.btnPrimary} onClick={handleAddDept}>Crear departamento</button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── CATALOGO ── */}
+              {view === "catalogo" && profile.role === "admin" && (
+                <>
+                  <div style={S.pageTitle}>Catálogo de logros</div>
+                  <div style={S.pageSubtitle}>Define qué acciones suman puntos y cuántos</div>
+                  <div style={S.card}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
+                      {catalog.map(item => (
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <span style={{ fontSize: "22px" }}>{item.icon}</span>
+                            <span style={{ fontSize: "14px", fontWeight: "600" }}>{item.label}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span style={{ fontWeight: "800", color: C.teal, fontSize: "15px" }}>{item.pts} pts</span>
+                            <button style={S.btnGhost(C.teal)} onClick={() => setEditCatalogItem({ ...item })}>✏️</button>
+                            <button style={S.btnDanger} onClick={() => handleDeleteCatalogItem(item.id)}>Eliminar</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ padding: "16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px dashed ${C.border}` }}>
+                      <div style={{ ...S.sectionLabel, marginBottom: "14px" }}>Añadir nuevo item</div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <label style={S.label}>Icono</label>
+                        <div style={{ position: "relative", display: "inline-block" }}>
+                          <button onClick={() => setShowPickerAdd(v => !v)} style={{ width: "48px", height: "48px", borderRadius: "10px", border: `2px solid ${C.teal}`, background: "#fff", cursor: "pointer", fontSize: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>{newCatalogItem.icon || "⭐"}</button>
+                          {showPickerAdd && (
+                            <div style={{ position: "absolute", top: "54px", left: 0, zIndex: 500, background: "#fff", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", display: "flex", flexWrap: "wrap", gap: "4px", width: "240px" }}>
+                              {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
+                                <button key={em} onClick={() => { setNewCatalogItem(f => ({ ...f, icon: em })); setShowPickerAdd(false); }} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `1.5px solid ${newCatalogItem.icon === em ? C.teal : "transparent"}`, background: newCatalogItem.icon === em ? `${C.teal}15` : "#F9FAFB", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        <input style={{ ...S.input, flex: 2, minWidth: "180px" }} placeholder="Nombre del logro..." value={newCatalogItem.label} onChange={e => setNewCatalogItem(f => ({ ...f, label: e.target.value }))} />
+                        <input style={{ ...S.input, width: "90px" }} type="number" placeholder="Pts" min="1" value={newCatalogItem.pts} onChange={e => setNewCatalogItem(f => ({ ...f, pts: e.target.value }))} />
+                        <button style={S.btnPrimary} onClick={handleAddCatalogItem}>Añadir</button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── EMPRESA ── */}
+              {view === "empresa" && profile.role === "admin" && (
+                <>
+                  <div style={S.pageTitle}>Configuración de empresa</div>
+                  <div style={S.pageSubtitle}>Personaliza la app con la identidad de tu empresa</div>
+                  <div style={{ ...S.card, maxWidth: "560px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                      <div>
+                        <label style={S.label}>Nombre de la empresa</label>
+                        <input style={S.input} placeholder="Nombre que aparecerá en el sidebar" value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label style={S.label}>Logo</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                          {companyForm.logo ? <img src={companyForm.logo} alt="logo" style={{ width: "64px", height: "64px", borderRadius: "10px", objectFit: "cover", border: `1px solid ${C.border}` }} /> : <div style={{ width: "64px", height: "64px", borderRadius: "10px", background: "#F3F4F6", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>🏢</div>}
+                          <div>
+                            <button style={S.btnSecondary} onClick={() => logoInputRef.current?.click()}>Subir imagen</button>
+                            <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} />
+                            {companyForm.logo && <button style={{ ...S.btnDanger, marginLeft: "8px" }} onClick={() => setCompanyForm(f => ({ ...f, logo: "" }))}>Eliminar</button>}
+                            <div style={{ fontSize: "12px", color: C.muted, marginTop: "6px" }}>PNG, JPG o SVG. Recomendado: 200×200px</div>
+                          </div>
+                        </div>
+                      </div>
+                      {companyMsg && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: "#D1FAE5", color: "#065F46" }}>{companyMsg}</div>}
+                      <div>
+                        <label style={S.label}>Colores corporativos</label>
+                        <div style={{ fontSize: "13px", color: C.muted, marginBottom: "12px" }}>Estos colores personalizan el aspecto de toda la app</div>
+                        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                          {[
+                            { key: "color1", label: "Color principal" },
+                            { key: "color2", label: "Color secundario" },
+                            { key: "color3", label: "Color acento" },
+                          ].map(({ key, label }) => (
+                            <div key={key} style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "center" }}>
+                              <div style={{ position: "relative" }}>
+                                <input type="color" value={companyForm[key]} onChange={e => setCompanyForm(f => ({ ...f, [key]: e.target.value }))}
+                                  style={{ width: "56px", height: "56px", borderRadius: "12px", border: `2px solid ${C.border}`, cursor: "pointer", padding: "2px", background: "none" }} />
+                              </div>
+                              <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600", textAlign: "center" }}>{label}</div>
+                              <div style={{ fontSize: "11px", color: C.muted, fontFamily: "monospace" }}>{companyForm[key]}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: "14px", display: "flex", gap: "8px" }}>
+                          <div style={{ fontSize: "12px", color: C.muted, marginBottom: "4px" }}>Vista previa:</div>
+                          <span style={{ padding: "4px 12px", borderRadius: "20px", background: companyForm.color1, color: "#fff", fontSize: "12px", fontWeight: "700" }}>Principal</span>
+                          <span style={{ padding: "4px 12px", borderRadius: "20px", background: companyForm.color2, color: "#fff", fontSize: "12px", fontWeight: "700" }}>Secundario</span>
+                          <span style={{ padding: "4px 12px", borderRadius: "20px", background: companyForm.color3, color: "#000", fontSize: "12px", fontWeight: "700" }}>Acento</span>
+                        </div>
+                      </div>
+                      <button style={S.btnPrimary} onClick={handleSaveCompany}>Guardar cambios</button>
+                    </div>
+                  </div>
+
+                  <div style={{ ...S.card, maxWidth: "560px", marginTop: "0" }}>
+                    <div style={S.sectionLabel}>Configuración inicial</div>
+                    <div style={{ fontSize: "14px", color: C.muted, marginBottom: "16px" }}>Vuelve a ver la guía de configuración paso a paso.</div>
+                    <button style={S.btnSecondary} onClick={() => { setOnboardingStep(0); setShowOnboarding(true); }}>🚀 Ver guía de inicio</button>
+                  </div>
+                </>
+              )}
+
+            {/* ── ESTADÍSTICAS ── */}
+            {view === "stats" && profile.role === "admin" && (() => {
+              // Points by month last 6
+              const last6 = [];
+              for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = `${d.getFullYear()}-${d.getMonth()}`;
+                const label = MONTH_NAMES[d.getMonth()].slice(0,3);
+                const pts = records.filter(r => r.month === key && r.validated).reduce((a,b) => a+b.pts, 0);
+                const count = records.filter(r => r.month === key && r.validated).length;
+                last6.push({ label, pts, count, key });
+              }
+              const maxBar = Math.max(...last6.map(m => m.pts), 1);
+
+              // Top employees all time
+              const topEmployees = teamProfiles.map(p => ({
+                ...p,
+                totalPts: records.filter(r => r.user_id === p.id && r.validated).reduce((a,b) => a+b.pts, 0),
+                totalLogros: records.filter(r => r.user_id === p.id && r.validated).length,
+              })).sort((a,b) => b.totalPts - a.totalPts);
+
+              // Top catalog items
+              const itemUsage = {};
+              records.filter(r => r.validated).forEach(r => { itemUsage[r.catalog_id] = (itemUsage[r.catalog_id] || 0) + 1; });
+              const topItems = Object.entries(itemUsage).sort((a,b) => b[1]-a[1]).slice(0,5).map(([id, count]) => ({ cat: catalog.find(c => c.id === id), count }));
+
+              // Summary stats
+              const totalValidated = records.filter(r => r.validated).length;
+              const totalPending = records.filter(r => !r.validated).length;
+              const totalPtsAllTime = records.filter(r => r.validated).reduce((a,b) => a+b.pts, 0);
+              const avgPtsPerMonth = last6.reduce((a,b) => a+b.pts, 0) / 6;
+
+              return (
+                <>
+                  <div style={S.pageTitle}>Estadísticas</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+                    <div style={S.pageSubtitle}>Resumen de actividad de tu equipo</div>
+                    <button style={S.btnPrimary} onClick={exportToExcel}>⬇️ Exportar Excel</button>
+                  </div>
+
+                  {/* KPI cards */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "24px" }}>
+                    {[
+                      { label: "Logros validados", value: totalValidated, icon: "✅", color: C.teal },
+                      { label: "Logros pendientes", value: totalPending, icon: "⏳", color: C.yellow },
+                      { label: "Puntos totales", value: totalPtsAllTime, icon: "🏆", color: C.green },
+                      { label: "Media pts/mes", value: Math.round(avgPtsPerMonth), icon: "📊", color: C.blue },
+                    ].map(s => (
+                      <div key={s.label} style={{ ...S.statCard(s.color), display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ fontSize: "22px" }}>{s.icon}</div>
+                        <div style={{ fontSize: "28px", fontWeight: "900", color: s.color }}>{s.value}</div>
+                        <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Evolution chart */}
+                  <div style={S.card}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                      <div style={S.sectionLabel}>Evolución del equipo — últimos 6 meses</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", height: "160px", padding: "0 8px" }}>
+                      {last6.map((m) => (
+                        <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%" }}>
+                          <div style={{ fontSize: "12px", fontWeight: "700", color: m.pts > 0 ? C.teal : C.muted }}>{m.pts > 0 ? m.pts : ""}</div>
+                          <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end" }}>
+                            <div style={{ width: "100%", height: `${Math.max((m.pts / maxBar) * 100, m.pts > 0 ? 6 : 2)}%`, background: m.key === monthKey ? C.teal : `${C.teal}50`, borderRadius: "6px 6px 0 0", transition: "height 0.6s ease", minHeight: "2px", position: "relative" }}>
+                              {m.count > 0 && <div style={{ position: "absolute", bottom: "4px", left: "50%", transform: "translateX(-50%)", fontSize: "10px", color: "#fff", fontWeight: "700" }}>{m.count}</div>}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "12px", color: C.muted, fontWeight: "600" }}>{m.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: "11px", color: C.muted, marginTop: "8px", textAlign: "center" }}>El número dentro de cada barra indica logros registrados ese mes</div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                    {/* Top employees */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Ranking histórico</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {topEmployees.map((u, i) => {
+                          const color = getColor(u.name);
+                          const lv = getLevel(u.totalPts);
+                          return (
+                            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: i === 0 ? `${color}10` : "#F9FAFB", border: `1px solid ${i === 0 ? color+"30" : C.border}` }}>
+                              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px", color: "#fff", flexShrink: 0 }}>{u.name[0]}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "13px", fontWeight: "700" }}>{u.name} <span style={{ ...S.badge(lv.color, `${lv.color}15`), fontSize: "10px" }}>{lv.icon} {lv.label}</span></div>
+                                <div style={{ fontSize: "11px", color: C.muted }}>{u.totalLogros} logros registrados</div>
+                              </div>
+                              <div style={{ fontWeight: "800", color, fontSize: "16px" }}>{u.totalPts} pts</div>
+                            </div>
+                          );
+                        })}
+                        {topEmployees.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin datos aún</div>}
+                      </div>
+                    </div>
+
+                    {/* Top catalog items */}
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Logros más registrados</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {topItems.map(({ cat, count }, i) => cat && (
+                          <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}` }}>
+                            <span style={{ fontSize: "22px" }}>{cat.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: "13px", fontWeight: "600" }}>{cat.label}</div>
+                              <div style={{ height: "4px", borderRadius: "2px", background: `${C.teal}20`, marginTop: "4px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${(count / topItems[0].count) * 100}%`, background: C.teal, borderRadius: "2px" }} />
+                              </div>
+                            </div>
+                            <span style={{ ...S.badge(C.teal, `${C.teal}15`), fontSize: "12px" }}>{count}x</span>
+                          </div>
+                        ))}
+                        {topItems.length === 0 && <div style={{ color: C.muted, fontSize: "13px" }}>Sin datos aún</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Winners history */}
+                  {history.length > 0 && (
+                    <div style={S.card}>
+                      <div style={S.sectionLabel}>Ganadores históricos</div>
+                      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                        {history.map((h, i) => (
+                          <div key={i} style={{ padding: "12px 16px", borderRadius: "10px", background: darkMode ? "#0d2a18" : "#F9FAFB", border: `1px solid ${C.border}`, minWidth: "160px" }}>
+                            <div style={{ fontSize: "11px", color: C.muted, fontWeight: "600", marginBottom: "4px" }}>{h.label}</div>
+                            <div style={{ fontWeight: "800", color: getColor(h.winner) }}>🥇 {h.winner}</div>
+                            <div style={{ fontSize: "11px", color: C.muted, marginTop: "2px" }}>{(h.scores || []).find(s => s.name === h.winner)?.pts || 0} pts</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* ── RETO COLECTIVO ── */}
+            {view === "reto" && profile.role === "admin" && (
+              <>
+                <div style={S.pageTitle}>Reto Colectivo</div>
+                <div style={S.pageSubtitle}>Lanza un objetivo compartido para motivar a todo el equipo</div>
+
+                {challenge ? (
+                  <div style={S.card}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                          <span style={S.badge(C.teal, `${C.teal}15`)}>🎯 Reto activo</span>
+                        </div>
+                        <div style={{ fontSize: "20px", fontWeight: "800" }}>{challenge.title}</div>
+                        {challenge.description && <div style={{ color: C.muted, fontSize: "14px", marginTop: "4px" }}>{challenge.description}</div>}
+                      </div>
+                      <button style={S.btnDanger} onClick={handleCloseChallenge}>Cerrar reto</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "16px", marginBottom: "20px" }}>
+                      {[
+                        { label: "Objetivo", value: `${challenge.target_pts} pts`, icon: "🎯" },
+                        { label: "Conseguidos", value: `${challengeCurrentPts} pts`, icon: "📊" },
+                        { label: "Fecha límite", value: challenge.deadline, icon: "📅" },
+                      ].map(s => (
+                        <div key={s.label} style={{ ...S.statCard(C.teal), display: "flex", gap: "12px", alignItems: "center" }}>
+                          <span style={{ fontSize: "24px" }}>{s.icon}</span>
+                          <div>
+                            <div style={{ fontSize: "18px", fontWeight: "800", color: C.teal }}>{s.value}</div>
+                            <div style={{ fontSize: "12px", color: C.muted }}>{s.label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {challenge.prize && <div style={{ padding: "12px 16px", borderRadius: "8px", background: `${C.yellow}15`, border: `1px solid ${C.yellow}30`, fontSize: "14px" }}>🎁 Premio: <strong>{challenge.prize}</strong></div>}
+                    <div style={{ marginTop: "16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: "600" }}>Progreso del equipo</span>
+                        <span style={{ fontSize: "13px", fontWeight: "700", color: C.teal }}>{challengeProgress}%</span>
+                      </div>
+                      <div style={{ height: "10px", borderRadius: "5px", background: `${C.teal}20`, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${challengeProgress}%`, background: `linear-gradient(90deg, ${C.teal}, ${C.green})`, borderRadius: "5px", transition: "width 0.8s ease" }} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ ...S.card, textAlign: "center", padding: "48px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "12px" }}>🎯</div>
+                    <div style={{ fontWeight: "700", fontSize: "17px", marginBottom: "6px" }}>No hay ningún reto activo</div>
+                    <div style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>Lanza un reto colectivo para motivar a tu equipo</div>
+                    <button style={S.btnPrimary} onClick={() => setShowChallengeForm(true)}>🚀 Lanzar nuevo reto</button>
+                  </div>
                 )}
+
+                {!challenge && showChallengeForm && (
+                  <div style={S.card}>
+                    <div style={{ fontWeight: "800", fontSize: "17px", marginBottom: "20px" }}>Nuevo reto colectivo</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      <div><label style={S.label}>Título del reto *</label><input style={S.input} placeholder="Ej: ¡Llegamos a 300 puntos este mes!" value={challengeForm.title} onChange={e => setChallengeForm(f => ({ ...f, title: e.target.value }))} /></div>
+                      <div><label style={S.label}>Descripción (opcional)</label><input style={S.input} placeholder="Explica el reto al equipo..." value={challengeForm.description} onChange={e => setChallengeForm(f => ({ ...f, description: e.target.value }))} /></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                        <div><label style={S.label}>Objetivo (puntos) *</label><input style={S.input} type="number" min="1" placeholder="Ej: 300" value={challengeForm.targetPts} onChange={e => setChallengeForm(f => ({ ...f, targetPts: e.target.value }))} /></div>
+                        <div><label style={S.label}>Fecha límite *</label><input style={S.input} type="date" value={challengeForm.deadline} onChange={e => setChallengeForm(f => ({ ...f, deadline: e.target.value }))} /></div>
+                      </div>
+                      <div><label style={S.label}>Premio 🎁</label><input style={S.input} placeholder="Ej: Viernes de salida anticipada, Pizza para todos..." value={challengeForm.prize} onChange={e => setChallengeForm(f => ({ ...f, prize: e.target.value }))} /></div>
+                      {challengeMsg && <div style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: "#FEF3C7", color: "#92400E" }}>{challengeMsg}</div>}
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <button style={S.btnSecondary} onClick={() => setShowChallengeForm(false)}>Cancelar</button>
+                        <button style={S.btnPrimary} onClick={handleSaveChallenge}>🚀 Lanzar reto</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            </div>
+          </div>
+
+          {/* ── ONBOARDING ── */}
+          {showOnboarding && profile?.role === "admin" && (
+            <div style={S.overlay}>
+              <div style={{ ...S.modal, maxWidth: "560px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                  <div>
+                    <div style={{ fontSize: "20px", fontWeight: "900" }}>¡Bienvenido a Meriti! 🎉</div>
+                    <div style={{ fontSize: "13px", color: C.muted, marginTop: "4px" }}>Configura tu espacio en 3 pasos</div>
+                  </div>
+                  <button onClick={() => setShowOnboarding(false)} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: "20px" }}>×</button>
+                </div>
+
+                {/* Steps */}
+                <div style={{ display: "flex", gap: "8px", marginBottom: "28px" }}>
+                  {[0,1,2].map(s => (
+                    <div key={s} style={{ flex: 1, height: "4px", borderRadius: "2px", background: s <= onboardingStep ? C.teal : C.border, transition: "background 0.3s" }} />
+                  ))}
+                </div>
+
+                {onboardingStep === 0 && (
+                  <div>
+                    <div style={{ fontSize: "36px", marginBottom: "12px" }}>🏢</div>
+                    <div style={{ fontWeight: "800", fontSize: "17px", marginBottom: "6px" }}>Paso 1 — Nombra tu empresa</div>
+                    <div style={{ fontSize: "13px", color: C.muted, marginBottom: "20px" }}>Este nombre aparecerá en el sidebar de la app</div>
+                    <input style={S.input} placeholder="Nombre de tu empresa..." value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                )}
+                {onboardingStep === 1 && (
+                  <div>
+                    <div style={{ fontSize: "36px", marginBottom: "12px" }}>🏗️</div>
+                    <div style={{ fontWeight: "800", fontSize: "17px", marginBottom: "6px" }}>Paso 2 — Crea tu primer departamento</div>
+                    <div style={{ fontSize: "13px", color: C.muted, marginBottom: "20px" }}>Puedes crear más después. Si no tienes departamentos, puedes saltarte este paso.</div>
+                    <input style={S.input} placeholder="Ej: Ventas, Marketing, Operaciones..." value={newDept} onChange={e => setNewDept(e.target.value)} />
+                  </div>
+                )}
+                {onboardingStep === 2 && (
+                  <div>
+                    <div style={{ fontSize: "36px", marginBottom: "12px" }}>👥</div>
+                    <div style={{ fontWeight: "800", fontSize: "17px", marginBottom: "6px" }}>Paso 3 — Invita a tu equipo</div>
+                    <div style={{ fontSize: "13px", color: C.muted, marginBottom: "20px" }}>Añade los emails de tu equipo y compárteles el enlace de la app para que se registren.</div>
+                    <div style={{ padding: "12px 16px", borderRadius: "8px", background: `${C.teal}10`, border: `1px solid ${C.teal}30`, marginBottom: "16px" }}>
+                      <div style={{ fontSize: "12px", color: C.muted, marginBottom: "4px" }}>Enlace de registro para tu equipo:</div>
+                      <div style={{ fontSize: "13px", fontWeight: "600", color: C.teal, wordBreak: "break-all" }}>{`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <input style={{ ...S.input, flex: 1 }} type="email" placeholder="email@empresa.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                      <button style={S.btnPrimary} onClick={handleSendInvite}>Añadir</button>
+                    </div>
+                    {inviteMsg && <div style={{ fontSize: "12px", color: "#059669", marginTop: "8px" }}>{inviteMsg}</div>}
+                    {invitations.length > 0 && <div style={{ fontSize: "13px", color: C.muted, marginTop: "8px" }}>{invitations.length} email(s) registrados ✓</div>}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "28px" }}>
+                  {onboardingStep > 0 && <button style={S.btnSecondary} onClick={() => setOnboardingStep(s => s - 1)}>← Atrás</button>}
+                  {onboardingStep < 2 && (
+                    <button style={S.btnPrimary} onClick={async () => {
+                      if (onboardingStep === 0 && companyForm.name.trim()) await handleSaveCompany();
+                      if (onboardingStep === 1 && newDept.trim()) await handleAddDept();
+                      setOnboardingStep(s => s + 1);
+                    }}>
+                      {onboardingStep === 1 && !newDept.trim() ? "Saltar →" : "Siguiente →"}
+                    </button>
+                  )}
+                  {onboardingStep === 2 && (
+                    <button style={S.btnPrimary} onClick={() => setShowOnboarding(false)}>Empezar →</button>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* MODAL CIERRE MES */}
+          {/* ── MODAL EDITAR CATÁLOGO ── */}
+          {editCatalogItem && (
+            <div style={S.overlay}>
+              <div style={S.modal}>
+                <div style={{ fontWeight: "800", fontSize: "18px", marginBottom: "20px" }}>✏️ Editar logro</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div>
+                    <label style={S.label}>Icono</label>
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <button onClick={() => setShowPickerEdit(v => !v)} style={{ width: "48px", height: "48px", borderRadius: "10px", border: `2px solid ${C.teal}`, background: "#fff", cursor: "pointer", fontSize: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>{editCatalogItem.icon || "⭐"}</button>
+                      {showPickerEdit && (
+                        <div style={{ position: "absolute", top: "54px", left: 0, zIndex: 500, background: "#fff", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", display: "flex", flexWrap: "wrap", gap: "4px", width: "240px" }}>
+                          {["🎓","🤝","💡","✅","⚡","🔧","🏆","🎯","🌟","🔥","💪","📚","🎨","🛠️","📊","🚀","👏","💰","🎁","⭐","🏅","🎖️","📈","🔑"].map(em => (
+                            <button key={em} onClick={() => { setEditCatalogItem(i => ({ ...i, icon: em })); setShowPickerEdit(false); }} style={{ width: "36px", height: "36px", borderRadius: "8px", border: `1.5px solid ${editCatalogItem.icon === em ? C.teal : "transparent"}`, background: editCatalogItem.icon === em ? `${C.teal}15` : "#F9FAFB", cursor: "pointer", fontSize: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div style={{ flex: 1 }}><label style={S.label}>Nombre</label><input style={S.input} value={editCatalogItem.label} onChange={e => setEditCatalogItem(i => ({ ...i, label: e.target.value }))} /></div>
+                    <div style={{ width: "90px" }}><label style={S.label}>Puntos</label><input style={S.input} type="number" min="1" value={editCatalogItem.pts} onChange={e => setEditCatalogItem(i => ({ ...i, pts: e.target.value }))} /></div>
+                  </div>
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                    <button style={S.btnSecondary} onClick={() => setEditCatalogItem(null)}>Cancelar</button>
+                    <button style={S.btnPrimary} onClick={handleEditCatalogItem}>Guardar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── MODAL EDITAR ── */}
+          {editRecord && (
+            <div style={S.overlay}>
+              <div style={S.modal}>
+                <div style={{ fontWeight: "800", fontSize: "18px", marginBottom: "20px" }}>✏️ Editar logro</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div><label style={S.label}>Logro</label>
+                    <select style={S.select} value={editRecord.catalog_id} onChange={e => setEditRecord(r => ({ ...r, catalog_id: e.target.value }))}>
+                      {catalog.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label} — {c.pts} pts</option>)}
+                    </select>
+                  </div>
+                  <div><label style={S.label}>Descripción</label><input style={S.input} value={editRecord.description} onChange={e => setEditRecord(r => ({ ...r, description: e.target.value }))} /></div>
+                  <div><label style={S.label}>Fecha</label><input style={S.input} type="date" value={editRecord.date} onChange={e => setEditRecord(r => ({ ...r, date: e.target.value }))} /></div>
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "4px" }}>
+                    <button style={S.btnSecondary} onClick={() => setEditRecord(null)}>Cancelar</button>
+                    <button style={S.btnPrimary} onClick={handleSaveEdit}>Guardar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── MODAL CIERRE MES ── */}
           {closingMonth && (
             <div style={S.overlay}>
               <div style={{ ...S.modal, textAlign: "center" }}>
-                <div style={{ fontSize: "64px" }}>🏆</div>
-                <div style={{ fontWeight: "900", fontSize: "22px", margin: "12px 0 8px" }}>¡Cierre de {MONTH_NAMES[now.getMonth()]}!</div>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>El crack del mes es:</div>
-                <div style={{ fontSize: "36px", fontWeight: "900", color: winner ? getUserColor(winner.name, allNames).main : "#fff", margin: "8px 0 4px", textShadow: winner ? `0 0 30px ${getUserColor(winner.name, allNames).glow}` : "none" }}>
-                  {winner?.name || "—"} 🎉
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.5)", marginBottom: "24px" }}>con {winner?.pts || 0} puntos</div>
+                <div style={{ fontSize: "56px", marginBottom: "16px" }}>🏆</div>
+                <div style={{ fontWeight: "900", fontSize: "22px", marginBottom: "8px" }}>Cierre de {MONTH_NAMES[now.getMonth()]}</div>
+                <div style={{ color: C.muted, marginBottom: "8px" }}>El ganador del mes es:</div>
+                <div style={{ fontSize: "32px", fontWeight: "900", color: winner ? getColor(winner.name) : C.text, marginBottom: "4px" }}>{winner?.name || "—"}</div>
+                <div style={{ color: C.muted, marginBottom: "28px" }}>{winner?.pts || 0} puntos</div>
                 <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                  <button style={S.dangerBtn} onClick={() => setClosingMonth(false)}>Cancelar</button>
-                  <button style={S.btn("#FFE66D")} onClick={handleCloseMonth}>Confirmar y cerrar mes →</button>
+                  <button style={S.btnSecondary} onClick={() => setClosingMonth(false)}>Cancelar</button>
+                  <button style={S.btnYellow} onClick={handleCloseMonth}>Confirmar y cerrar mes</button>
                 </div>
               </div>
             </div>
