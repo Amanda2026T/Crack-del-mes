@@ -194,8 +194,13 @@
         setHistory(data || []);
       }
       async function loadCatalog() {
-        const { data } = await supabase.from("catalog_items").select("*").order("created_at");
-        setCatalog(data || []);
+        if (!profile?.company_id) return;
+        const { data } = await supabase.from("catalog_items").select("*").eq("company_id", profile.company_id).order("created_at");
+        if (data && data.length > 0) { setCatalog(data); }
+        else {
+          const { data: ins } = await supabase.from("catalog_items").insert(DEFAULT_CATALOG.map(c => ({ ...c, company_id: profile.company_id }))).select();
+          setCatalog(ins || DEFAULT_CATALOG);
+        }
       }
       async function loadPrizes() {
         if (!profile?.company_id) return;
@@ -234,15 +239,16 @@
       }
       async function checkOnboarding() {
         if (!profile?.company_id) return;
-        const key = `meriti_onboarding_done_${profile.company_id}`;
-        if (localStorage.getItem(key) === "true") return;
-        // Only show if company has no name set yet
-        const { data } = await supabase.from("company_settings").select("name").eq("id", profile.company_id).single();
+        const { data } = await supabase.from("company_settings").select("name, onboarding_done").eq("id", profile.company_id).single();
+        if (data?.onboarding_done) return;
         if (!data?.name || data.name === "Mi Empresa" || data.name === "") {
           setShowOnboarding(true);
-        } else {
-          localStorage.setItem(key, "true");
         }
+      }
+      async function completeOnboarding() {
+        if (!profile?.company_id) return;
+        await supabase.from("company_settings").update({ onboarding_done: true }).eq("id", profile.company_id);
+        setShowOnboarding(false);
       }
       async function loadChallenge() {
         if (!profile?.company_id) return;
@@ -1670,7 +1676,7 @@
                     <div style={{ fontSize: "20px", fontWeight: "900" }}>¡Bienvenido a Meriti! 🎉</div>
                     <div style={{ fontSize: "13px", color: C.muted, marginTop: "4px" }}>Configura tu espacio en 3 pasos</div>
                   </div>
-                  <button onClick={() => { localStorage.setItem(`meriti_onboarding_done_${profile.company_id}`, "true"); setShowOnboarding(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: "20px" }}>×</button>
+                  <button onClick={completeOnboarding} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: "20px" }}>×</button>
                 </div>
 
                 {/* Steps */}
@@ -1726,7 +1732,7 @@
                     </button>
                   )}
                   {onboardingStep === 2 && (
-                    <button style={S.btnPrimary} onClick={() => { localStorage.setItem(`meriti_onboarding_done_${profile.company_id}`, "true"); setShowOnboarding(false); }}>Empezar →</button>
+                    <button style={S.btnPrimary} onClick={completeOnboarding}>Empezar →</button>
                   )}
                 </div>
               </div>
