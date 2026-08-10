@@ -1226,7 +1226,15 @@
                     </div>
                     <div style={{ padding: "10px 14px", borderRadius: "8px", background: `${C.teal}10`, border: `1px solid ${C.teal}30`, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
                       <span style={{ fontSize: "12px", color: C.teal, fontWeight: "600", wordBreak: "break-all" }}>{`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`}</span>
-                      <button style={{ ...S.btnGhost(C.teal), whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`)}>📋 Copiar</button>
+                      <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                        <button style={{ ...S.btnGhost(C.teal), whiteSpace: "nowrap" }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`)}>📋 Copiar</button>
+                        <button style={{ ...S.btnGhost(C.green), whiteSpace: "nowrap" }} onClick={() => {
+                          const link = `${window.location.origin}${window.location.pathname}?invite=${company?.invite_token || ""}`;
+                          const subject = encodeURIComponent(`Únete a ${company?.name || "Meriti"}`);
+                          const body = encodeURIComponent(`Hola,\n\nTe invito a unirte a ${company?.name || "Meriti"}, nuestra plataforma de reconocimiento de equipo.\n\nHaz clic en este enlace para registrarte:\n${link}\n\n¡Nos vemos dentro!`);
+                          window.open(`mailto:?subject=${subject}&body=${body}`);
+                        }}>✉️ Enviar email</button>
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
                       <input style={{ ...S.input, flex: 1 }} type="email" placeholder="email@empresa.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSendInvite()} />
